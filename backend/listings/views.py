@@ -3,6 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from accounts.auth import user_from_request
+from agents.jacob.pricing import PricingError, price_item
 from listings.services import (
     ListingError,
     add_photo,
@@ -118,3 +119,57 @@ def item_listing(request, item_id, marketplace):
     except ListingError as exc:
         return _json_error(exc)
     return JsonResponse(listing_payload(listing))
+
+
+def _quote_payload(quote):
+    return {
+        "id": quote.pk,
+        "item_id": quote.item_id,
+        "status": quote.status,
+        "price_minor": quote.price_minor,
+        "currency": quote.currency,
+        "rationale": quote.rationale,
+        "error": quote.error,
+        "comps": [
+            {
+                "marketplace": comp.marketplace,
+                "title": comp.title,
+                "price_minor": comp.price_minor,
+                "currency": comp.currency,
+                "condition": comp.condition,
+                "size": comp.size,
+                "url": comp.url,
+                "sold": comp.sold,
+                "similarity": comp.similarity,
+                "reason": comp.reason,
+            }
+            for comp in quote.comps.all()
+        ],
+    }
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def price_item_view(request, item_id):
+    """Price one of the caller's items and return Jacob's quote."""
+    user, error = _authenticated(request)
+    if error is not None:
+        return error
+    try:
+        item = item_for_user(user, item_id)
+        quote = price_item(item)
+    except ListingError as exc:
+        return _json_error(exc)
+    except PricingError as exc:
+        return JsonResponse({"error": exc.message}, status=exc.status)
+    item.refresh_from_db()
+    return JsonResponse(
+        {
+            "quote": _quote_payload(quote),
+            "item": {
+                "id": item.pk,
+                "price_minor": item.price_minor,
+                "currency": item.currency,
+            },
+        }
+    )

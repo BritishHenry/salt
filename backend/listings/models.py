@@ -186,3 +186,57 @@ class Listing(models.Model):
         item = self.item
         item.status = Item.Status.SOLD
         item.save(update_fields=["status", "updated_at"])
+
+
+class PriceQuote(models.Model):
+    """One attempt by Jacob to recommend a list price for an item."""
+
+    class Status(models.TextChoices):
+        RUNNING = "running", "Running"
+        READY = "ready", "Ready"
+        FAILED = "failed", "Failed"
+
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="price_quotes")
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.RUNNING
+    )
+    price_minor = models.PositiveIntegerField(null=True, blank=True)
+    currency = models.CharField(max_length=3, default="gbp")
+    rationale = models.TextField(blank=True)
+    error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Quote for {self.item}"
+
+
+class Comparable(models.Model):
+    """A marketplace listing Jacob compared against the item."""
+
+    class Similarity(models.TextChoices):
+        HIGH = "high", "High"
+        MEDIUM = "medium", "Medium"
+        LOW = "low", "Low"
+
+    quote = models.ForeignKey(
+        PriceQuote, on_delete=models.CASCADE, related_name="comps"
+    )
+    marketplace = models.CharField(max_length=16, choices=Listing.Marketplace.choices)
+    title = models.CharField(max_length=255, blank=True)
+    price_minor = models.PositiveIntegerField()
+    currency = models.CharField(max_length=3, default="gbp")
+    condition = models.CharField(max_length=64, blank=True)
+    size = models.CharField(max_length=64, blank=True)
+    url = models.URLField(max_length=500)
+    sold = models.BooleanField(default=False)
+    similarity = models.CharField(
+        max_length=16, choices=Similarity.choices, blank=True
+    )
+    reason = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.marketplace} comp for {self.quote_id}"

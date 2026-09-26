@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from listings.models import Item, ItemPhoto, Listing
+from listings.models import Comparable, Item, ItemPhoto, Listing, PriceQuote
 
 
 class ItemPhotoInline(admin.TabularInline):
@@ -31,3 +31,16 @@ class ListingAdmin(admin.ModelAdmin):
     list_display = ("item", "marketplace", "status", "price_minor", "currency")
     list_filter = ("marketplace", "status")
     search_fields = ("title", "external_id", "item__title")
+
+
+class ComparableInline(admin.TabularInline):
+    model = Comparable
+    extra = 0
+
+
+@admin.register(PriceQuote)
+class PriceQuoteAdmin(admin.ModelAdmin):
+    list_display = ("item", "status", "price_minor", "currency", "created_at")
+    list_filter = ("status",)
+    search_fields = ("item__title", "item__brand", "rationale", "error")
+    inlines = [ComparableInline]

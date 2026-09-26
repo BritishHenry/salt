@@ -21,4 +21,9 @@ urlpatterns = [
         views.item_listing,
         name="listing-item-listing",
     ),
+    path(
+        "items/<int:item_id>/price/",
+        views.price_item_view,
+        name="listing-price",
+    ),
 ]
