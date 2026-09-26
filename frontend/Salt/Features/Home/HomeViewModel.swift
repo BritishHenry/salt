@@ -44,6 +44,8 @@ final class HomeViewModel: ObservableObject {
                 guard !Task.isCancelled, let self else { return }
                 self.apply(event, to: agentID)
             }
+            guard !Task.isCancelled, let self else { return }
+            self.finishReplyIfNeeded(for: agentID)
         }
         return true
     }
@@ -60,6 +62,20 @@ final class HomeViewModel: ObservableObject {
             isReplying = turn.isBusy
         } else {
             isReplying = false
+        }
+    }
+
+    private func finishReplyIfNeeded(for id: String) {
+        guard let index = turns.firstIndex(where: { $0.id == id }),
+              case .agent(let turn) = turns[index],
+              turn.isBusy else {
+            refreshReplying()
+            return
+        }
+        if turn.message.isEmpty {
+            apply(.error("Salt couldn't finish that. Try again."), to: id)
+        } else {
+            apply(.done(thinking: turn.thinking, message: turn.message), to: id)
         }
     }
 }
