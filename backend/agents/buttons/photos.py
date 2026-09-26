@@ -1,6 +1,7 @@
 """Load the photo bytes Buttons stores on the draft item."""
 
 import base64
+import http.client
 import ipaddress
 import socket
 import urllib.error
@@ -17,6 +18,33 @@ MAX_IMAGE_BYTES = 10 * 1024 * 1024
 class _RefuseRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise ButtonsError("The image URL must not redirect.")
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    def __init__(self, host, *, pinned_address, **kwargs):
+        self._pinned_address = pinned_address
+        super().__init__(host, **kwargs)
+
+    def connect(self):
+        sock = socket.create_connection(
+            (self._pinned_address, self.port),
+            self.timeout,
+            self.source_address,
+        )
+        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+
+
+class _PinnedHTTPSHandler(urllib.request.HTTPSHandler):
+    def __init__(self, pinned_address):
+        self._pinned_address = pinned_address
+        super().__init__()
+
+    def https_open(self, req):
+        def connection_factory(host, **kwargs):
+            kwargs.setdefault("context", self._context)
+            return _PinnedHTTPSConnection(host, pinned_address=self._pinned_address, **kwargs)
+
+        return self.do_open(connection_factory, req)
 
 
 def load_photo_bytes(grok, *, image_url=None, image_file_id=None):
@@ -37,8 +65,11 @@ def fetch_image(url):
         return _decode_data_image(url)
     require_https_url(url, "image_url")
     parsed = urlparse(url)
-    _assert_public_host(parsed.hostname)
-    opener = urllib.request.build_opener(_RefuseRedirect)
+    pinned_address = _assert_public_host(parsed.hostname)
+    opener = urllib.request.build_opener(
+        _RefuseRedirect,
+        _PinnedHTTPSHandler(pinned_address),
+    )
     request = urllib.request.Request(url, headers={"User-Agent": "salt-buttons/1.0"})
     try:
         with opener.open(request, timeout=20) as response:
@@ -80,6 +111,7 @@ def _assert_public_host(hostname):
     for address in addresses:
         if _blocked(address):
             raise ButtonsError("The image URL must be a public https address.")
+    return str(addresses[0])
 
 
 def _resolve(hostname):
@@ -99,6 +131,8 @@ def _resolve(hostname):
 
 
 def _blocked(address):
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
     return (
         address.is_private
         or address.is_loopback
