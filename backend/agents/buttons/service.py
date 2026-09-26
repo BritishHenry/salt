@@ -238,8 +238,12 @@ def _missing_required(item):
 
 
 def _pending_proposals(item):
-    confirmed = set(item.confirmed_fields or [])
-    return any(field not in confirmed for field in (item.proposals or {}))
+    missing = _missing_required(item)
+    if not missing:
+        return False
+    if item.photos.count() < 2 and _first_low_label_field(item) is not None:
+        return False
+    return missing[0] in (item.proposals or {})
 
 
 def _write_confirmed(item, field, value):
