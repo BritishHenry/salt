@@ -162,3 +162,24 @@ class UrllibTransport:
                 raise _error_for(exc.code, body, path) from exc
             except URLError as exc:
                 raise BrowserUseError(f"Browser Use request failed: {exc.reason}") from exc
+
+    def put_bytes(self, url, content, *, content_type):
+        """PUT bytes to a presigned upload URL. The API key is not sent."""
+        if not isinstance(url, str) or not url.startswith("https://"):
+            raise BrowserUseError("Upload URL must be https.")
+        if not isinstance(content, (bytes, bytearray)) or not content:
+            raise BrowserUseError("Upload content must be non-empty bytes.")
+        request = Request(
+            url,
+            data=bytes(content),
+            headers={"Content-Type": content_type},
+            method="PUT",
+        )
+        try:
+            with self._opener(request, timeout=self._timeout) as response:
+                response.read()
+        except HTTPError as exc:
+            body = _parse_body(exc.read())
+            raise BrowserUseAPIError(exc.code, detail_text(body) or "upload failed", body=body) from exc
+        except URLError as exc:
+            raise BrowserUseError(f"Browser Use upload failed: {exc.reason}") from exc

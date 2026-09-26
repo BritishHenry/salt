@@ -912,6 +912,23 @@ func testSaltChatExchange() throws {
     expectEqual(request.value(forHTTPHeaderField: "Accept"), "text/event-stream", "chat accept")
     let body = try JSONDecoder().decode(ChatRequestFixture.self, from: request.httpBody ?? Data())
     expectEqual(body.messages, [SaltChatWireMessage(role: "user", content: "What is listed?")], "chat body")
+    expectTrue(body.imageURL == nil, "chat body has no photo")
+    expectEqual(request.timeoutInterval, 300, "chat timeout waits for a tool")
+
+    let photo = ChatMessage(
+        id: "u2",
+        author: .user,
+        text: "Here is a photo.",
+        imageURL: "data:image/jpeg;base64,aa",
+        sentAt: Date(timeIntervalSince1970: 4)
+    )
+    let photoRequest = try SaltChatExchange.request(
+        baseURL: SaltAPIConfiguration.defaultBaseURL,
+        token: "tok_1",
+        transcript: [photo]
+    )
+    let photoBody = try JSONDecoder().decode(ChatRequestFixture.self, from: photoRequest.httpBody ?? Data())
+    expectEqual(photoBody.imageURL, "data:image/jpeg;base64,aa", "chat body includes the photo")
 
     let openedAt = Date(timeIntervalSince1970: 4)
     let opening = SaltChatExchange.openingTurn(at: openedAt)
@@ -982,6 +999,12 @@ func testSaltChatExchange() throws {
 
 private struct ChatRequestFixture: Decodable {
     var messages: [SaltChatWireMessage]
+    var imageURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case messages
+        case imageURL = "image_url"
+    }
 }
 
 func itemDescription(_ items: [WardrobeItem], id: String) -> String {

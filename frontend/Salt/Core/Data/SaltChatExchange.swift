@@ -4,19 +4,36 @@ import FoundationNetworking
 #endif
 
 enum SaltChatExchange {
-    static func request(baseURL: URL, token: String, transcript: [ChatTurn]) throws -> URLRequest {
+    static func request(
+        baseURL: URL,
+        token: String,
+        transcript: [ChatTurn],
+        imageURL: String? = nil
+    ) throws -> URLRequest {
         let messages = wireMessages(from: transcript)
         guard let last = messages.last, last.role == "user" else {
             throw AccountAPIError(message: "The last message must be from the user.")
         }
+        let attached = imageURL ?? lastUserImage(in: transcript)
         var request = URLRequest(url: try AccountExchange.url(baseURL: baseURL, path: "api/agents/salt/chat"))
         request.httpMethod = "POST"
-        request.timeoutInterval = 120
+        request.timeoutInterval = 300
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONEncoder().encode(SaltChatRequestBody(messages: messages))
+        request.httpBody = try JSONEncoder().encode(
+            SaltChatRequestBody(messages: messages, imageURL: attached)
+        )
         return request
+    }
+
+    static func lastUserImage(in transcript: [ChatTurn]) -> String? {
+        for turn in transcript.reversed() {
+            if case .user(let message) = turn, let imageURL = message.imageURL, !imageURL.isEmpty {
+                return imageURL
+            }
+        }
+        return nil
     }
 
     static func wireMessages(from transcript: [ChatTurn]) -> [SaltChatWireMessage] {
@@ -71,6 +88,20 @@ struct SaltChatWireMessage: Equatable, Codable, Sendable {
 
 private struct SaltChatRequestBody: Encodable {
     var messages: [SaltChatWireMessage]
+    var imageURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case messages
+        case imageURL = "image_url"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(messages, forKey: .messages)
+        if let imageURL, !imageURL.isEmpty {
+            try container.encode(imageURL, forKey: .imageURL)
+        }
+    }
 }
 
 private struct SaltChatErrorBody: Decodable {

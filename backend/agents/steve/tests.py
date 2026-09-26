@@ -92,7 +92,7 @@ def item_with_listing(user, *, floor=2000):
 class SteveToolTests(TestCase):
     def test_schema_is_the_one_salt_sends(self):
         steve = TOOLS["steve"].schema
-        self.assertIs(steve, specialist_tools()[4])
+        self.assertIs(steve, specialist_tools()[5])
         self.assertEqual(steve["description"], STEVE_DESCRIPTION)
         self.assertIn("confirmed", steve["parameters"]["properties"])
 

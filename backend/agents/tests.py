@@ -138,11 +138,11 @@ class SaltAgentTests(SimpleTestCase):
         self.assertEqual(REASONING_EFFORT, "low")
         self.assertIs(body["stream"], True)
         self.assertIs(body["store"], False)
-        self.assertEqual(body["tool_choice"], "none")
+        self.assertEqual(body["tool_choice"], "auto")
         self.assertEqual(body["safety_identifier"], "seller-7")
         self.assertEqual(
             [tool["name"] for tool in body["tools"]],
-            ["willow", "bobby", "jacob", "maggie", "steve"],
+            ["willow", "bobby", "jacob", "buttons", "maggie", "steve"],
         )
         self.assertEqual(body["input"][-1], {"role": "user", "content": "How was my week?"})
         self.assertIn("Willow", body["instructions"])
@@ -190,7 +190,9 @@ class SaltAgentTests(SimpleTestCase):
 
     def test_specialist_tools_name_the_other_agents(self):
         names = [tool["name"] for tool in specialist_tools()]
-        self.assertEqual(names, ["willow", "bobby", "jacob", "maggie", "steve"])
+        self.assertEqual(
+            names, ["willow", "bobby", "jacob", "buttons", "maggie", "steve"]
+        )
         self.assertTrue(all(tool["type"] == "function" for tool in specialist_tools()))
         self.assertNotIn("salt", names)
 

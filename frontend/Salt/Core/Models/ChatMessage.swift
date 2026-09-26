@@ -12,7 +12,9 @@ struct ChatMessage: Identifiable, Equatable, Codable, Hashable, Sendable {
 
     let id: String
     let author: Author
-    let text: String
+    var text: String
+    var thinking: String = ""
+    var imageURL: String? = nil
     let sentAt: Date
 
     var isFromUser: Bool {

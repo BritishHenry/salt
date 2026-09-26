@@ -59,6 +59,16 @@ class FakeTransport:
             raise item
         return item
 
+    def put_bytes(self, url, content, *, content_type):
+        self.calls.append(
+            {
+                "method": "PUT",
+                "path": url,
+                "body": content,
+                "content_type": content_type,
+            }
+        )
+
 
 def client(responses, clock=None):
     clock = clock or Clock()
@@ -121,6 +131,33 @@ def message(status="pending", run_id=None, message_id=7, text="Next"):
 
 
 class CreateRunTests(unittest.TestCase):
+    def test_uploads_a_workspace_file_to_the_presigned_url(self):
+        browser, transport, _clock = client(
+            [
+                {"id": WORKSPACE_ID},
+                {"fileId": "file_1", "uploadUrl": "https://uploads.example/photo"},
+            ]
+        )
+
+        file_id = browser.upload_workspace_file(
+            browser.create_workspace(),
+            filename="photo.jpg",
+            content=b"jpeg-bytes",
+            content_type="image/jpeg",
+        )
+
+        self.assertEqual(file_id, "file_1")
+        self.assertEqual(transport.calls[0]["path"], "/workspaces")
+        self.assertEqual(
+            transport.calls[1]["path"],
+            f"/workspaces/{WORKSPACE_ID}/files/upload",
+        )
+        self.assertEqual(transport.calls[1]["json"]["fileName"], "photo.jpg")
+        self.assertEqual(transport.calls[2]["method"], "PUT")
+        self.assertEqual(transport.calls[2]["path"], "https://uploads.example/photo")
+        self.assertEqual(transport.calls[2]["body"], b"jpeg-bytes")
+        self.assertNotIn("json", transport.calls[2])
+
     def test_sends_only_the_task_by_default(self):
         browser, transport, _clock = client([created_run()])
         run = browser.create_run("Find the top Hacker News story")

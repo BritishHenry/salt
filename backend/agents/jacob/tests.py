@@ -413,3 +413,40 @@ class PriceApiTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(PriceQuote.objects.count(), 0)
         self.assertEqual(self.browser.calls, [])
+
+
+class JacobToolTests(TestCase):
+    def test_price_action_returns_the_quote_salt_can_say(self):
+        from agents.jacob.tool import JACOB_DESCRIPTION
+        from agents.salt.tools import specialist_tools
+        from agents.tools import TOOLS, call_tool
+
+        user = make_user("pricer")
+        item = Item.objects.create(
+            user=user,
+            title="Navy wool coat",
+            brand="COS",
+            garment_type="coat",
+            price_minor=None,
+        )
+        quote = PriceQuote(
+            item=item,
+            status=PriceQuote.Status.READY,
+            price_minor=2400,
+            currency="gbp",
+            rationale="Close to sold coats in the same size.",
+        )
+
+        with patch("agents.jacob.tool.price_item", return_value=quote) as price:
+            result = call_tool("jacob", user, {"action": "price", "item_id": item.pk})
+
+        price.assert_called_once()
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["item_id"], item.pk)
+        self.assertEqual(result["price_minor"], 2400)
+        self.assertEqual(result["currency"], "gbp")
+        self.assertIn("£24.00", result["message"])
+        jacob = TOOLS["jacob"].schema
+        self.assertIs(jacob, specialist_tools()[2])
+        self.assertEqual(jacob["description"], JACOB_DESCRIPTION)
+        self.assertEqual(set(jacob["parameters"]["properties"]), {"action", "item_id"})

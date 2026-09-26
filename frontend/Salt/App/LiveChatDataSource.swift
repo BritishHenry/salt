@@ -95,8 +95,8 @@ enum URLSessionSaltChat {
 
     private static var configuration: URLSessionConfiguration {
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 120
-        configuration.timeoutIntervalForResource = 180
+        configuration.timeoutIntervalForRequest = 300
+        configuration.timeoutIntervalForResource = 600
         configuration.waitsForConnectivity = true
         return configuration
     }
