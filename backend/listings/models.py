@@ -96,6 +96,8 @@ class Item(models.Model):
         max_length=16, choices=Status.choices, default=Status.DRAFT
     )
     source = models.CharField(max_length=255, blank=True)
+    proposals = models.JSONField(default=dict, blank=True)
+    confirmed_fields = models.JSONField(default=list, blank=True)
     acquired_on = models.DateField(null=True, blank=True)
     storage_note = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
