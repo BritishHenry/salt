@@ -6,6 +6,7 @@ from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
+from listings.models import Listing
 from payments.models import ApiToken, BalanceTransfer, ProcessedStripeEvent, Seller
 from payments.services import (
     PaymentError,
@@ -158,6 +159,7 @@ def sales(request):
             marketplace=data.get("marketplace", ""),
             external_sale_id=data.get("external_sale_id", ""),
             amount_minor=data.get("amount_minor"),
+            listing=_listing_for_sale(data.get("listing_id")),
         )
     except PaymentError as exc:
         return _json_error(exc)
@@ -209,6 +211,17 @@ def sale_transfer(request, sale_id):
     )
 
 
+def _listing_for_sale(listing_id):
+    if listing_id is None:
+        return None
+    if isinstance(listing_id, bool) or not isinstance(listing_id, int):
+        raise PaymentError("listing_id must be an integer.")
+    try:
+        return Listing.objects.select_related("item").get(pk=listing_id)
+    except Listing.DoesNotExist as exc:
+        raise PaymentError("Listing not found.", status=404) from exc
+
+
 def _sale_payload(sale):
     return {
         "sale_id": sale.pk,
@@ -216,6 +229,8 @@ def _sale_payload(sale):
         "external_sale_id": sale.external_sale_id,
         "amount_minor": sale.amount_minor,
         "currency": sale.currency,
+        "listing_id": sale.listing_id,
+        "status": sale.status,
     }
 
 
