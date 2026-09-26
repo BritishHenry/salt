@@ -1,5 +1,5 @@
-"""Financial analyst.
+"""Listing price calculator.
 
-Recommends listing prices and minimum offers; estimates fees and proceeds;
-analyses sales performance and suggests price changes.
+Searches comparable listings on Vinted, Depop, and eBay, and recommends one
+list price from how similar the item is, including condition and size.
 """

@@ -1,1 +1,1 @@
-"""Seller-facing agents that coordinate listings, buyer conversations, pricing, and marketplace sync."""
+"""Seller-facing agents for account connection, listings, pricing, buyer conversations, and marketplace sync."""
