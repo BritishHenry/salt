@@ -20,13 +20,29 @@ class Seller(models.Model):
 
 
 class MarketplaceSale(models.Model):
+    class Status(models.TextChoices):
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
     seller = models.ForeignKey(
         Seller, on_delete=models.PROTECT, related_name="sales"
     )
+    listing = models.ForeignKey(
+        "listings.Listing",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="sales",
+    )
     marketplace = models.CharField(max_length=64)
     external_sale_id = models.CharField(max_length=255)
-    amount_minor = models.PositiveIntegerField()
+    amount_minor = models.PositiveIntegerField(
+        help_text="Seller proceeds for this sale, in minor currency units."
+    )
     currency = models.CharField(max_length=3, default="gbp")
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.COMPLETED
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

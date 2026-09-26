@@ -16,7 +16,16 @@ class SellerAdmin(admin.ModelAdmin):
 
 @admin.register(MarketplaceSale)
 class MarketplaceSaleAdmin(admin.ModelAdmin):
-    list_display = ("marketplace", "external_sale_id", "amount_minor", "currency", "seller")
+    list_display = (
+        "marketplace",
+        "external_sale_id",
+        "amount_minor",
+        "currency",
+        "seller",
+        "listing",
+        "status",
+    )
+    list_filter = ("status", "marketplace")
 
 
 @admin.register(FundAuthorization)
