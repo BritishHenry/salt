@@ -131,15 +131,21 @@ class BrowserUseClient:
         asks the active run to stop so this instruction can start now.
         Options such as ``model`` apply only when a new run is created.
         """
+        attached_file_ids = run_options.get("attached_file_ids")
         if session_id and interrupt:
-            message = self.send(session_id, task, interrupt=True)
+            message = self.send(
+                session_id,
+                task,
+                interrupt=True,
+                attached_file_ids=attached_file_ids,
+            )
             return Assignment(session_id=session_id, message=message)
         try:
             run = self.create_run(task, session_id=session_id, **run_options)
         except SessionBusy:
             if not session_id:
                 raise
-            message = self.send(session_id, task)
+            message = self.send(session_id, task, attached_file_ids=attached_file_ids)
             return Assignment(session_id=session_id, message=message)
         return Assignment(session_id=run.session_id, run=run)
 
@@ -192,15 +198,18 @@ class BrowserUseClient:
         raise_on_error = wait_options.get("raise_on_error", True)
         deadline = None if timeout is None else self._monotonic() + timeout
         run_id = assignment.run.id if assignment.run else None
-        if assignment.message is not None and assignment.message.run_id is None:
-            remaining = None if deadline is None else max(0, deadline - self._monotonic())
-            message = self.wait_for_dispatch(
-                assignment.session_id,
-                assignment.message.id,
-                timeout=remaining,
-                poll_interval=poll_interval,
-            )
-            run_id = message.run_id
+        if assignment.message is not None:
+            if assignment.message.run_id is None:
+                remaining = None if deadline is None else max(0, deadline - self._monotonic())
+                message = self.wait_for_dispatch(
+                    assignment.session_id,
+                    assignment.message.id,
+                    timeout=remaining,
+                    poll_interval=poll_interval,
+                )
+                run_id = message.run_id
+            elif run_id is None:
+                run_id = assignment.message.run_id
         remaining = None if deadline is None else max(0, deadline - self._monotonic())
         return self.wait(
             run_id,
