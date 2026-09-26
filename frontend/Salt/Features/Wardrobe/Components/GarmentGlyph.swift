@@ -22,7 +22,7 @@ struct GarmentGlyph: View {
     private var symbolName: String {
         switch kind {
         case .shoes:
-            return "shoeprints.fill"
+            return "shoe.fill"
         case .bag:
             return "bag.fill"
         case .top, .bottom, .dress, .outerwear:
