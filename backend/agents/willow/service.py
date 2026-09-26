@@ -1,15 +1,18 @@
 """Sign a seller into a marketplace, or check the session already on their profile.
 
-The password is bound to one Browser Use run and is never written onto the
-connection row. Cookies stay on the seller's browser profile after the
-browser stops.
+A password the seller just typed is encrypted on their account, then decrypted
+into one Browser Use secret locked to that marketplace's hosts. The plaintext
+is never written onto the connection row. Cookies stay on the seller's browser
+profile after the browser stops.
 """
 
 from django.utils import timezone
 
 from accounts.models import MarketplaceConnection
+from accounts.secrets import marketplace_login_secret
+from accounts.services import AccountError
 from agents.willow.sites import SITES
-from services.browser_use import BrowserUseClient, Secret
+from services.browser_use import BrowserUseClient
 from services.browser_use.errors import BrowserUseTimeout
 
 RUN_TIMEOUT = 180
@@ -32,12 +35,13 @@ _BLOCKED = frozenset(OUTPUT_SCHEMA["properties"]["blocked_by"]["enum"])
 
 
 def connect_marketplace(user, marketplace, password, *, client=None):
-    """Sign in with a password, or ask Salt to collect one first."""
+    """Sign in with a password, or reuse the encrypted one already stored."""
     site = SITES[marketplace]
     connection = _connection(user, site)
     if connection is None:
         return _missing(site)
-    if not isinstance(password, str) or not password.strip():
+    supplied = password.strip() if isinstance(password, str) else ""
+    if not supplied and not _has_stored_password(user, site.slug):
         message = (
             f"Ask the seller for their {site.label} password, then call willow "
             "again with action connect and that password."
@@ -45,15 +49,27 @@ def connect_marketplace(user, marketplace, password, *, client=None):
         return _save(connection, status="needs_login", message=message, checked=False)
     problem = _profile_problem(user)
     if problem:
-        return _save(connection, status="failed", message=problem, checked=False)
-    secret = Secret.inline(site.secret_alias, password, site.allowed_hosts)
+        return _save(connection, status="failed", message=problem, checked=False, password=supplied)
+    try:
+        secret = _bind_login_secret(user, site, supplied)
+    except ValueError:
+        message = (
+            f"The {site.label} password could not be saved. Ask the seller to try again."
+        )
+        return _save(connection, status="failed", message=message, checked=False, password=supplied)
+    except AccountError:
+        message = (
+            f"Ask the seller for their {site.label} password, then call willow "
+            "again with action connect and that password."
+        )
+        return _save(connection, status="needs_login", message=message, checked=False, password=supplied)
     return _browse(
         connection,
         site,
-        task=_login_task(site, user.email, password),
+        task=_login_task(site, user.email, secret.value),
         profile_id=user.browser_profile_id,
         secret=secret,
-        password=password,
+        password=secret.value,
         client=client,
     )
 
@@ -98,6 +114,19 @@ def _profile_problem(user):
     if user.browser_profile_status == "ready" and user.browser_profile_id:
         return None
     return user.browser_profile_error or "The browser profile is not ready."
+
+
+def _has_stored_password(user, marketplace):
+    field = user._marketplace_password_field(marketplace)
+    return bool(getattr(user, field))
+
+
+def _bind_login_secret(user, site, supplied):
+    """Encrypt a new password, then return the domain-locked secret."""
+    if supplied:
+        user.set_marketplace_password(site.slug, supplied)
+        user.save(update_fields=[user._marketplace_password_field(site.slug)])
+    return marketplace_login_secret(user, site.slug, site.allowed_hosts)
 
 
 def _login_task(site, email, password):

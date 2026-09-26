@@ -31,21 +31,24 @@ def decrypt_password(token):
         raise ValueError("marketplace password could not be decrypted") from exc
 
 
-def marketplace_login_secret(user, marketplace):
+def marketplace_login_secret(user, marketplace, allowed_domains=None):
     """Decrypt one marketplace password into a single-run Browser Use secret.
 
-    The secret can be typed only on that marketplace's domain. The caller
-    attaches it to a new run that uses this user's browser profile.
+    The secret can be typed only on that marketplace's domains. The caller
+    attaches it to a new run that uses this user's browser profile. Pass
+    ``allowed_domains`` when the login flow needs every host for that site.
     """
     from accounts.services import AccountError
 
     password = user.marketplace_password(marketplace)
     if not password:
         raise AccountError(f"No {marketplace} password is stored.")
+    if allowed_domains is None:
+        allowed_domains = [LOGIN_DOMAINS[marketplace]]
     return Secret.inline(
         f"{marketplace}_password",
         password,
-        [LOGIN_DOMAINS[marketplace]],
+        allowed_domains,
     )
 
 
