@@ -17,7 +17,7 @@ class ListingInline(admin.TabularInline):
 class ItemAdmin(admin.ModelAdmin):
     list_display = ("title", "user", "status", "price_minor", "currency")
     list_filter = ("status", "department", "category")
-    search_fields = ("title", "brand", "user__username")
+    search_fields = ("title", "brand", "user__email")
     inlines = [ItemPhotoInline, ListingInline]
 
 

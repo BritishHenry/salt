@@ -10,16 +10,20 @@ from payments.services import PaymentError, record_sale
 User = get_user_model()
 
 
-def make_user(username):
-    return User.objects.create_user(username=username, password="secret")
+def make_user(name):
+    return User.objects.create_user(
+        email=f"{name}@example.com",
+        display_name=name,
+        password="secret",
+    )
 
 
 def make_seller(user):
     return Seller.objects.create(
         user=user,
-        stripe_account_id=f"acct_{user.username}",
-        display_name=user.username,
-        contact_email=f"{user.username}@example.com",
+        stripe_account_id=f"acct_{user.pk}",
+        display_name=user.display_name,
+        contact_email=user.email,
     )
 
 

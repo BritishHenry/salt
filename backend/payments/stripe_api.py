@@ -63,7 +63,7 @@ def create_recipient_account(*, display_name, contact_email, user_id):
                 "metadata": {"salt_user_id": str(user_id)},
                 "include": ["configuration.recipient"],
             },
-            _options(),
+            _options(idempotency_key=f"salt-user-{user_id}"),
         )
     except stripe.StripeError as exc:
         _raise_stripe(exc)

@@ -1,19 +1,11 @@
 from django.contrib import admin
 
 from payments.models import (
-    ApiToken,
     BalanceTransfer,
     FundAuthorization,
     MarketplaceSale,
     Seller,
 )
-
-
-@admin.register(ApiToken)
-class ApiTokenAdmin(admin.ModelAdmin):
-    list_display = ("user", "created_at")
-    readonly_fields = ("key", "created_at")
-    search_fields = ("user__username",)
 
 
 @admin.register(Seller)
