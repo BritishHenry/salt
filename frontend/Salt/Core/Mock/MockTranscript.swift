@@ -1,26 +1,36 @@
 import Foundation
 
 enum MockTranscript {
-    static func opening(at now: Date) -> [ChatMessage] {
+    static func opening(at now: Date) -> [ChatTurn] {
         let start = now.addingTimeInterval(-2 * 60 * 60)
         return [
-            ChatMessage(
-                id: "welcome",
-                author: .agent(name: MockCopy.agentName),
-                text: MockCopy.welcome,
-                sentAt: start
+            .agent(
+                AgentTurn(
+                    id: "welcome",
+                    thinking: "",
+                    message: MockCopy.welcome,
+                    phase: .complete,
+                    error: nil,
+                    startedAt: start
+                )
             ),
-            ChatMessage(
-                id: "seed-user",
-                author: .user,
-                text: MockCopy.seedQuestion,
-                sentAt: start.addingTimeInterval(60)
+            .user(
+                ChatMessage(
+                    id: "seed-user",
+                    author: .user,
+                    text: MockCopy.seedQuestion,
+                    sentAt: start.addingTimeInterval(60)
+                )
             ),
-            ChatMessage(
-                id: "seed-salt",
-                author: .agent(name: MockCopy.agentName),
-                text: WardrobeInsights(items: MockWardrobe.items).gapSentence(),
-                sentAt: start.addingTimeInterval(90)
+            .agent(
+                AgentTurn(
+                    id: "seed-salt",
+                    thinking: "",
+                    message: WardrobeInsights(items: MockWardrobe.items).gapSentence(),
+                    phase: .complete,
+                    error: nil,
+                    startedAt: start.addingTimeInterval(90)
+                )
             )
         ]
     }

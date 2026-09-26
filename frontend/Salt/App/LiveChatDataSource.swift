@@ -10,32 +10,59 @@ struct LiveChatDataSource: ChatDataSource, SaltChatStreaming {
     var agentName: String { SaltAgent.name }
     var suggestions: [String] { MockCopy.suggestions }
 
-    func loadTranscript() -> [ChatMessage] {
+    func loadTranscript() -> [ChatTurn] {
         [
-            ChatMessage(
-                id: "local:welcome",
-                author: .agent(name: agentName),
-                text: "Hello, I'm Salt. Ask me about the shop.",
-                sentAt: Date()
+            .agent(
+                AgentTurn(
+                    id: "local:welcome",
+                    thinking: "",
+                    message: "Hello, I'm Salt. Ask me about the shop.",
+                    phase: .complete,
+                    error: nil,
+                    startedAt: Date()
+                )
             )
         ]
     }
 
-    func makeUserMessage(text: String, at date: Date) -> ChatMessage {
-        ChatMessage(id: UUID().uuidString, author: .user, text: text, sentAt: date)
+    func makeUserTurn(text: String, at date: Date) -> ChatTurn {
+        .user(ChatMessage(id: UUID().uuidString, author: .user, text: text, sentAt: date))
     }
 
-    func reply(to _: String, in _: [ChatMessage], at date: Date) -> ChatMessage {
-        ChatMessage(
+    func makeAgentTurn(at date: Date) -> AgentTurn {
+        AgentTurn(
             id: UUID().uuidString,
-            author: .agent(name: agentName),
-            text: "I couldn't reach the server.",
-            sentAt: date
+            thinking: "",
+            message: "",
+            phase: .thinking,
+            error: nil,
+            startedAt: date
         )
     }
 
+    func reply(to _: String, in transcript: [ChatTurn]) -> AsyncStream<ChatStreamEvent> {
+        AsyncStream { continuation in
+            let task = Task {
+                do {
+                    try await streamReply(transcript: transcript) { event in
+                        continuation.yield(ChatStreamEvent(serverEvent: event))
+                    }
+                } catch {
+                    if !Task.isCancelled {
+                        let message = (error as? AccountAPIError)?.message ?? "Salt couldn't reach the server."
+                        continuation.yield(.error(message))
+                    }
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
+    }
+
     func streamReply(
-        transcript: [ChatMessage],
+        transcript: [ChatTurn],
         onEvent: @Sendable (SaltChatServerEvent) async -> Void
     ) async throws {
         let request = try SaltChatExchange.request(baseURL: baseURL, token: token, transcript: transcript)
@@ -103,6 +130,22 @@ enum URLSessionSaltChat {
             return "Salt couldn't reach the server. Check that it's running."
         default:
             return "Salt couldn't reach the server."
+        }
+    }
+}
+
+private extension ChatStreamEvent {
+    init(serverEvent: SaltChatServerEvent) {
+        switch serverEvent {
+        case .thinking(let delta):
+            self = .thinking(delta)
+        case .message(let delta):
+            self = .message(delta)
+        case .done(let thinking, let message):
+            self = .done(thinking: thinking, message: message)
+        case .failure(let text):
+            let note = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            self = .error(note.isEmpty ? "Salt couldn't finish that. Try again." : note)
         }
     }
 }

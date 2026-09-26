@@ -12,24 +12,20 @@ struct HomeView: View {
         SaltScreen {
             VStack(spacing: 0) {
                 SaltChatHeader(name: viewModel.agentName)
-                messages
+                transcript
                 composer
             }
             .accessibilityIdentifier("home.chat")
         }
     }
 
-    private var messages: some View {
+    private var transcript: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 14) {
-                    ForEach(viewModel.messages) { message in
-                        ChatBubble(message: message)
-                            .id(message.id)
-                    }
-                    if viewModel.showsTypingIndicator {
-                        TypingIndicator()
-                            .id(Self.typingID)
+                    ForEach(viewModel.turns) { turn in
+                        ChatTurnView(turn: turn, agentName: viewModel.agentName)
+                            .id(turn.id)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -37,13 +33,7 @@ struct HomeView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .onAppear { scrollToEnd(with: proxy, animated: false) }
-            .onChange(of: viewModel.messages.count) { _ in
-                scrollToEnd(with: proxy, animated: true)
-            }
-            .onChange(of: viewModel.messages.last?.text) { _ in
-                scrollToEnd(with: proxy, animated: true)
-            }
-            .onChange(of: viewModel.showsTypingIndicator) { _ in
+            .onChange(of: viewModel.scrollRevision) { _ in
                 scrollToEnd(with: proxy, animated: true)
             }
         }
@@ -84,8 +74,7 @@ struct HomeView: View {
     }
 
     private func scrollToEnd(with proxy: ScrollViewProxy, animated: Bool) {
-        let target = viewModel.showsTypingIndicator ? Self.typingID : viewModel.messages.last?.id
-        guard let target else { return }
+        guard let target = viewModel.turns.last?.id else { return }
         if animated {
             withAnimation(.easeOut(duration: 0.2)) {
                 proxy.scrollTo(target, anchor: .bottom)
@@ -94,8 +83,6 @@ struct HomeView: View {
             proxy.scrollTo(target, anchor: .bottom)
         }
     }
-
-    private static let typingID = "typing"
 }
 
 struct HomeView_Previews: PreviewProvider {

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 enum SaltChatServerEvent: Equatable, Sendable {
     case thinking(String)
@@ -93,7 +96,7 @@ struct SaltChatSSEParser {
 }
 
 enum SaltChatExchange {
-    static func request(baseURL: URL, token: String, transcript: [ChatMessage]) throws -> URLRequest {
+    static func request(baseURL: URL, token: String, transcript: [ChatTurn]) throws -> URLRequest {
         let messages = wireMessages(from: transcript)
         guard let last = messages.last, last.role == "user" else {
             throw AccountAPIError(message: "The last message must be from the user.")
@@ -108,14 +111,21 @@ enum SaltChatExchange {
         return request
     }
 
-    static func wireMessages(from transcript: [ChatMessage]) -> [SaltChatWireMessage] {
-        transcript.compactMap { message in
-            if message.id.hasPrefix("local:") {
+    static func wireMessages(from transcript: [ChatTurn]) -> [SaltChatWireMessage] {
+        transcript.compactMap { turn in
+            if turn.id.hasPrefix("local:") {
                 return nil
             }
-            let content = message.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !content.isEmpty else { return nil }
-            return SaltChatWireMessage(role: message.isFromUser ? "user" : "assistant", content: content)
+            switch turn {
+            case .user(let message):
+                let content = message.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !content.isEmpty else { return nil }
+                return SaltChatWireMessage(role: "user", content: content)
+            case .agent(let agent):
+                let content = agent.message.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !content.isEmpty else { return nil }
+                return SaltChatWireMessage(role: "assistant", content: content)
+            }
         }
     }
 
@@ -155,7 +165,7 @@ private struct SaltChatErrorBody: Decodable {
 
 protocol SaltChatStreaming: Sendable {
     func streamReply(
-        transcript: [ChatMessage],
+        transcript: [ChatTurn],
         onEvent: @Sendable (SaltChatServerEvent) async -> Void
     ) async throws
 }
