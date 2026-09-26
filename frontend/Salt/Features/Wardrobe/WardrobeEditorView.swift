@@ -298,6 +298,7 @@ struct WardrobeEditorView: View {
     private func applyPhoto(itemID: String) async throws {
         let existing = baselinePhotos.sorted { $0.position < $1.position }.first
         if let pendingPhoto {
+            let uploadedPosition = (baselinePhotos.map(\.position).max()).map { $0 + 1 } ?? 0
             try await dataSource.uploadPhoto(
                 itemID: itemID,
                 filename: "photo.jpg",
@@ -308,8 +309,7 @@ struct WardrobeEditorView: View {
                 try await dataSource.deletePhoto(itemID: itemID, position: existing.position)
                 baselinePhotos.removeAll { $0.position == existing.position }
             }
-            let nextPosition = (baselinePhotos.map(\.position).max()).map { $0 + 1 } ?? 0
-            baselinePhotos.append(WardrobePhoto(position: nextPosition, url: nil))
+            baselinePhotos.append(WardrobePhoto(position: uploadedPosition, url: nil))
             return
         }
         if removePhoto, let existing {
