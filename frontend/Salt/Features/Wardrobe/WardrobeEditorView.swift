@@ -22,11 +22,13 @@ struct WardrobeEditorView: View {
     @State private var removePhoto = false
     @State private var errorMessage: String?
     @State private var isSaving = false
+    @State private var baselinePhotos: [WardrobePhoto]
 
     init(dataSource: any WardrobeDataSource, item: WardrobeItem?, onSaved: @escaping () -> Void) {
         self.dataSource = dataSource
         startingItem = item
         self.onSaved = onSaved
+        _baselinePhotos = State(initialValue: item?.photos ?? [])
         _persistedID = State(initialValue: item?.id)
         _title = State(initialValue: item?.title ?? "")
         _brand = State(initialValue: item?.brand ?? "")
@@ -294,7 +296,7 @@ struct WardrobeEditorView: View {
     }
 
     private func applyPhoto(itemID: String) async throws {
-        let existing = startingItem?.photos.sorted { $0.position < $1.position }.first
+        let existing = baselinePhotos.sorted { $0.position < $1.position }.first
         if let pendingPhoto {
             try await dataSource.uploadPhoto(
                 itemID: itemID,
@@ -304,11 +306,15 @@ struct WardrobeEditorView: View {
             )
             if let existing {
                 try await dataSource.deletePhoto(itemID: itemID, position: existing.position)
+                baselinePhotos.removeAll { $0.position == existing.position }
             }
+            let nextPosition = (baselinePhotos.map(\.position).max()).map { $0 + 1 } ?? 0
+            baselinePhotos.append(WardrobePhoto(position: nextPosition, url: nil))
             return
         }
         if removePhoto, let existing {
             try await dataSource.deletePhoto(itemID: itemID, position: existing.position)
+            baselinePhotos.removeAll { $0.position == existing.position }
         }
     }
 
