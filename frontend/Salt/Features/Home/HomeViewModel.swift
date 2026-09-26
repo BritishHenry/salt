@@ -44,6 +44,8 @@ final class HomeViewModel: ObservableObject {
                 guard !Task.isCancelled, let self else { return }
                 self.apply(event, to: agentID)
             }
+            guard !Task.isCancelled, let self else { return }
+            self.endStream(for: agentID)
         }
         return true
     }
@@ -52,6 +54,13 @@ final class HomeViewModel: ObservableObject {
         guard let index = turns.firstIndex(where: { $0.id == id }),
               case .agent(let turn) = turns[index] else { return }
         turns[index] = .agent(AgentTurnReducer.apply(event, to: turn))
+        refreshReplying()
+    }
+
+    private func endStream(for id: String) {
+        guard let index = turns.firstIndex(where: { $0.id == id }),
+              case .agent(let turn) = turns[index] else { return }
+        turns[index] = .agent(AgentTurnReducer.endStream(turn))
         refreshReplying()
     }
 

@@ -18,6 +18,14 @@ struct ServerSentEventParser {
         return events
     }
 
+    /// Parses a last frame that arrived without a trailing blank line.
+    mutating func finish() -> [ChatStreamEvent] {
+        let tail = buffer
+        buffer.removeAll()
+        guard !tail.isEmpty, let event = ChatStreamEvent(serverSentFrame: tail) else { return [] }
+        return [event]
+    }
+
     private func nextSeparator() -> Range<Data.Index>? {
         let lineFeed = buffer.range(of: Data([0x0A, 0x0A]))
         let carriageReturn = buffer.range(of: Data([0x0D, 0x0A, 0x0D, 0x0A]))
@@ -31,6 +39,19 @@ struct ServerSentEventParser {
         case (nil, nil):
             return nil
         }
+    }
+}
+
+/// The line loop the chat client uses while reading a server-sent response.
+struct SaltChatLineDecoder {
+    private var parser = ServerSentEventParser()
+
+    mutating func receiveLine(_ line: String) -> [ChatStreamEvent] {
+        parser.append(Data((line + "\n").utf8))
+    }
+
+    mutating func finish() -> [ChatStreamEvent] {
+        parser.finish()
     }
 }
 

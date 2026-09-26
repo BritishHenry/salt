@@ -705,6 +705,44 @@ func testAgentTurnReducer() {
     failed = AgentTurnReducer.apply(.thinking("more"), to: failed)
     expectEqual(failed.thinking, "Starting.", "ignore after failed")
     expectEqual(failed.phase, .failed, "stays failed")
+
+    var blank = AgentTurn(
+        id: "blank",
+        thinking: "",
+        message: "",
+        phase: .thinking,
+        error: nil,
+        startedAt: started
+    )
+    blank = AgentTurnReducer.apply(.error("  "), to: blank)
+    expectEqual(blank.phase, .failed, "blank error fails")
+    expectEqual(blank.error, AgentTurnReducer.unfinishedMessage, "blank error text")
+
+    var dropped = AgentTurn(
+        id: "dropped",
+        thinking: "",
+        message: "",
+        phase: .thinking,
+        error: nil,
+        startedAt: started
+    )
+    dropped = AgentTurnReducer.apply(.thinking("Looking."), to: dropped)
+    dropped = AgentTurnReducer.endStream(dropped)
+    expectEqual(dropped.phase, .failed, "open stream fails")
+    expectEqual(dropped.thinking, "Looking.", "open stream keeps thinking")
+    expectEqual(dropped.error, AgentTurnReducer.unfinishedMessage, "open stream text")
+    let finished = AgentTurnReducer.endStream(dropped)
+    expectEqual(finished, dropped, "end stream leaves a failed turn")
+
+    let done = AgentTurn(
+        id: "done",
+        thinking: "Looking.",
+        message: "Your coat is on Vinted.",
+        phase: .complete,
+        error: nil,
+        startedAt: started
+    )
+    expectEqual(AgentTurnReducer.endStream(done), done, "end stream leaves a finished turn")
 }
 
 func testServerSentEvents() {
@@ -779,6 +817,19 @@ func testServerSentEvents() {
         [.error("The Grok API could not be reached.")],
         "unknown event skipped"
     )
+
+    var tail = ServerSentEventParser()
+    expectEqual(
+        tail.append(Data("event: message\ndata: {\"delta\":\"Still here\"}\n".utf8)),
+        [],
+        "frame without a blank line waits"
+    )
+    expectEqual(
+        tail.finish(),
+        [.message("Still here")],
+        "finish reads the last frame"
+    )
+    expectEqual(tail.finish(), [], "finish is empty after it drains")
 }
 
 func isAgent(_ turn: ChatTurn) -> Bool {
@@ -861,46 +912,65 @@ func testSaltChatExchange() throws {
     let body = try JSONDecoder().decode(ChatRequestFixture.self, from: request.httpBody ?? Data())
     expectEqual(body.messages, [SaltChatWireMessage(role: "user", content: "What is listed?")], "chat body")
 
-    var parser = SaltChatSSEParser()
-    let first = parser.append("event: thinking\ndata: {\"delta\":\"Looking.\"}\n")
-    expectEqual(first, [], "parser waits for a blank line")
-    let streamed = parser.append("\nevent: message\ndata: {\"delta\":\"Your coat \"}\n\n")
+    let openedAt = Date(timeIntervalSince1970: 4)
+    let opening = SaltChatExchange.openingTurn(at: openedAt)
+    expectEqual(agentMessage(opening) ?? "", MockCopy.welcome, "opening line")
+    if case .agent(let welcome) = opening {
+        expectEqual(welcome.id, "local:welcome", "opening stays local")
+        expectEqual(welcome.phase, .complete, "opening is complete")
+        expectEqual(welcome.startedAt, openedAt, "opening date")
+    } else {
+        expectTrue(false, "opening is an agent turn")
+    }
+    expectEqual(
+        SaltChatExchange.wireMessages(from: [opening, asked]),
+        [SaltChatWireMessage(role: "user", content: "What is listed?")],
+        "opening line is not sent"
+    )
+
+    let lines = [
+        "event: thinking",
+        "data: {\"delta\":\"Looking.\"}",
+        "",
+        "event: message",
+        "data: {\"delta\":\"Your coat \"}",
+        "",
+        "event: message",
+        "data: {\"delta\":\"is on Vinted.\"}",
+        "",
+        "event: done",
+        "data: {\"thinking\":\"Looking.\",\"message\":\"Your coat is on Vinted.\"}",
+        ""
+    ]
+    var decoder = SaltChatLineDecoder()
+    var streamed: [ChatStreamEvent] = []
+    for line in lines {
+        streamed.append(contentsOf: decoder.receiveLine(line))
+    }
+    streamed.append(contentsOf: decoder.finish())
     expectEqual(
         streamed,
-        [.thinking("Looking."), .message("Your coat ")],
-        "parser reads complete events"
-    )
-    let rest = parser.append("event: message\ndata: {\"delta\":\"is on Vinted.\"}\n\nevent: done\ndata: {\"thinking\":\"Looking.\",\"message\":\"Your coat is on Vinted.\"}\n\n")
-    expectEqual(
-        rest,
         [
+            .thinking("Looking."),
+            .message("Your coat "),
             .message("is on Vinted."),
             .done(thinking: "Looking.", message: "Your coat is on Vinted.")
         ],
-        "parser reads the rest of the stream"
+        "line decoder reads the chat stream"
     )
 
-    var split = SaltChatSSEParser()
-    _ = split.append("event: error\ndata: {\"error\":\"The Grok API ")
-    let failed = split.append("could not be reached.\"}\n\n")
-    expectEqual(failed, [.failure("The Grok API could not be reached.")], "parser joins a split data line")
-
-    var draft = SaltChatDraft()
-    draft.apply(.thinking("Looking."))
-    draft.apply(.message("Your coat "))
-    draft.apply(.done(thinking: "Looking.", message: "Your coat is on Vinted."))
-    expectEqual(draft.thinking, "Looking.", "done replaces thinking")
-    expectEqual(draft.message, "Your coat is on Vinted.", "done replaces the reply")
-    draft.apply(.failure("The Grok API could not be reached."))
+    var cutoff = SaltChatLineDecoder()
+    expectEqual(cutoff.receiveLine("event: error"), [], "line decoder waits for the data line")
     expectEqual(
-        draft.message,
-        "Your coat is on Vinted.\n\nThe Grok API could not be reached.",
-        "failure is appended"
+        cutoff.receiveLine("data: {\"error\":\"The Grok API could not be reached.\"}"),
+        [],
+        "line decoder waits for a blank line"
     )
-
-    var empty = SaltChatDraft()
-    empty.apply(.failure("  "))
-    expectEqual(empty.message, "Salt couldn't finish that. Try again.", "blank failure")
+    expectEqual(
+        cutoff.finish(),
+        [.error("The Grok API could not be reached.")],
+        "line decoder finishes a frame without a blank line"
+    )
 
     let denied = SaltChatExchange.message(
         forHTTPError: 401,
