@@ -6,7 +6,8 @@ from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from payments.models import ApiToken, BalanceTransfer, ProcessedStripeEvent, Seller
+from accounts.auth import user_from_request
+from payments.models import BalanceTransfer, ProcessedStripeEvent, Seller
 from payments.services import (
     PaymentError,
     authorize_sale,
@@ -25,14 +26,7 @@ from payments.stripe_api import (
 
 
 def _user(request):
-    header = request.headers.get("Authorization", "")
-    if not header.startswith("Bearer "):
-        return None
-    key = header.removeprefix("Bearer ").strip()
-    token = ApiToken.objects.select_related("user").filter(key=key).first()
-    if token is None:
-        return None
-    return token.user
+    return user_from_request(request)
 
 
 def _seller(user):

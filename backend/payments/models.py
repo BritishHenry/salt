@@ -1,25 +1,5 @@
-import secrets
-
 from django.conf import settings
 from django.db import models
-
-
-class ApiToken(models.Model):
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="api_token",
-    )
-    key = models.CharField(max_length=64, unique=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def save(self, *args, **kwargs):
-        if not self.key:
-            self.key = secrets.token_urlsafe(32)
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"API token for {self.user}"
 
 
 class Seller(models.Model):
