@@ -21,6 +21,8 @@ from services.grok.safety import (
     without_none,
 )
 
+_REASONING_EFFORTS = frozenset({"low", "medium", "high", "xhigh"})
+
 
 class ResponsesResource(Resource):
     def create_model_response(
@@ -238,7 +240,7 @@ def _response_body(
             "tools": tools,
             "tool_choice": tool_choice,
             "parallel_tool_calls": optional_bool(parallel_tool_calls, "parallel_tool_calls"),
-            "reasoning_effort": optional_token(reasoning_effort, "reasoning_effort"),
+            "reasoning": _reasoning_setting(reasoning_effort),
             "include": include,
             "text": optional_dict(text, "text"),
             "metadata": optional_dict(metadata, "metadata"),
@@ -261,6 +263,16 @@ def _response_body(
     if stream:
         body["stream"] = True
     return body
+
+
+def _reasoning_setting(effort):
+    """Map reasoning_effort onto the Responses API object, {"effort": "..."}."""
+    token = optional_token(effort, "reasoning_effort")
+    if token is None:
+        return None
+    if token not in _REASONING_EFFORTS:
+        raise GrokUsageError("reasoning_effort must be low, medium, high, or xhigh.")
+    return {"effort": token}
 
 
 def _require_model_input(value):
