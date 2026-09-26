@@ -1,7 +1,8 @@
 """Tools Salt uses to hand work to the other agents.
 
-The definitions are part of every chat request. Willow, Bobby, and Steve can be
-run through call_tool. Jacob and Maggie are still descriptions only.
+The definitions are part of every chat request. Willow, Bobby, Maggie, and Steve
+can be run through call_tool. Jacob is still a description only, and this chat
+turn answers the seller directly.
 """
 
 from services.grok import responses_function_tool
@@ -34,13 +35,6 @@ def specialist_tools():
                 "and eBay, including condition and size."
             ),
         ),
-        responses_function_tool(
-            "maggie",
-            _REQUEST,
-            description=(
-                "Publish an approved listing, check its status, apply an update, "
-                "or remove the other marketplace listings when an item sells."
-            ),
-        ),
+        TOOLS["maggie"].schema,
         TOOLS["steve"].schema,
     ]

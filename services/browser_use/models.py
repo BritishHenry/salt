@@ -230,6 +230,50 @@ class Assignment:
 
 
 @dataclass(frozen=True)
+class Workspace:
+    """A filesystem shared by Browser Use runs. Uploads live here, not on a profile."""
+
+    id: str
+    archived: bool
+    created_at: str
+    updated_at: str
+    name: str | None = None
+
+    @classmethod
+    def from_api(cls, payload):
+        return cls(
+            id=payload["id"],
+            name=payload.get("name"),
+            archived=bool(payload["archived"]),
+            created_at=payload["createdAt"],
+            updated_at=payload["updatedAt"],
+        )
+
+
+@dataclass(frozen=True)
+class WorkspaceUpload:
+    """One presigned workspace file. ``id`` is what a run attaches."""
+
+    id: str
+    name: str
+    stored_name: str
+    path: str
+    will_override: bool
+    upload_url: str
+
+    @classmethod
+    def from_api(cls, payload):
+        return cls(
+            id=payload["id"],
+            name=payload["name"],
+            stored_name=payload["storedName"],
+            path=payload["path"],
+            will_override=bool(payload["willOverride"]),
+            upload_url=payload["uploadUrl"],
+        )
+
+
+@dataclass(frozen=True)
 class Profile:
     """Saved browser state for one user: cookies and local storage, not passwords."""
 

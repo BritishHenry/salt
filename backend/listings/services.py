@@ -221,7 +221,14 @@ def listing_payload(listing):
         "category_ref": listing.category_ref,
         "shipping_price_minor": listing.shipping_price_minor,
         "attributes": listing.attributes,
+        "external_id": listing.external_id,
         "external_url": listing.external_url,
+        "listed_at": listing.listed_at.isoformat() if listing.listed_at else None,
+        "ended_at": listing.ended_at.isoformat() if listing.ended_at else None,
+        "last_synced_at": (
+            listing.last_synced_at.isoformat() if listing.last_synced_at else None
+        ),
+        "sync_error": listing.sync_error,
     }
 
 

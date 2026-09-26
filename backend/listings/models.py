@@ -170,19 +170,20 @@ class Listing(models.Model):
     def __str__(self):
         return f"{self.marketplace} listing for {self.item}"
 
-    def mark_sold(self):
+    def mark_sold(self, *, withdraw_siblings=True):
         """Close this channel and withdraw the other open offers for the garment."""
         now = timezone.now()
         self.status = self.Status.SOLD
         self.ended_at = now
         self.save(update_fields=["status", "ended_at"])
-        self.item.listings.filter(
-            status__in=(
-                self.Status.PUBLISHING,
-                self.Status.LIVE,
-                self.Status.PAUSED,
-            )
-        ).update(status=self.Status.ENDED, ended_at=now)
+        if withdraw_siblings:
+            self.item.listings.filter(
+                status__in=(
+                    self.Status.PUBLISHING,
+                    self.Status.LIVE,
+                    self.Status.PAUSED,
+                )
+            ).update(status=self.Status.ENDED, ended_at=now)
         item = self.item
         item.status = Item.Status.SOLD
         item.save(update_fields=["status", "updated_at"])
