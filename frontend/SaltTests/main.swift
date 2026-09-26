@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 var checks = 0
 
@@ -372,7 +375,7 @@ func signupFixture(token: String = "tok_1", includeToken: Bool = true) -> Data {
 }
 
 func bodyObject(_ request: URLRequest) throws -> [String: String] {
-    let data = try request.httpBody ?? Data()
+    let data = request.httpBody ?? Data()
     let object = try JSONSerialization.jsonObject(with: data)
     return object as? [String: String] ?? [:]
 }
@@ -517,16 +520,18 @@ func testSignup() throws {
     expectTrue(memory.load() == nil, "memory session cleared")
 
     let suite = "salt.signup.tests"
-    if let defaults = UserDefaults(suiteName: suite) {
-        defaults.removePersistentDomain(forName: suite)
-        let store = UserDefaultsSessionStore(defaults: defaults)
-        expectTrue(store.load() == nil, "empty session")
-        store.save(account)
-        expectEqual(store.load(), Optional(account), "session round trip")
-        store.clear()
-        expectTrue(store.load() == nil, "session cleared")
-        defaults.removePersistentDomain(forName: suite)
+    guard let defaults = UserDefaults(suiteName: suite) else {
+        expectTrue(false, "user defaults suite")
+        return
     }
+    defaults.removePersistentDomain(forName: suite)
+    let store = UserDefaultsSessionStore(defaults: defaults)
+    expectTrue(store.load() == nil, "empty session")
+    store.save(account)
+    expectEqual(store.load(), Optional(account), "session round trip")
+    store.clear()
+    expectTrue(store.load() == nil, "session cleared")
+    defaults.removePersistentDomain(forName: suite)
 }
 
 func itemDescription(_ items: [WardrobeItem], id: String) -> String {

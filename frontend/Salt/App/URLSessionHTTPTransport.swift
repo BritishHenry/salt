@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 final class URLSessionHTTPTransport: HTTPTransport, @unchecked Sendable {
     private let session: URLSession
