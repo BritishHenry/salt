@@ -24,6 +24,7 @@ enum WardrobeFilter: Hashable, Identifiable {
         [.all] + Marketplace.allCases.map { .marketplace($0) }
     }
 
+    /// Marketplace chips include a piece only when that channel is live.
     func apply(to items: [WardrobeItem]) -> [WardrobeItem] {
         switch self {
         case .all:

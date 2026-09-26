@@ -27,6 +27,8 @@ struct GarmentGlyph: View {
             return "bag.fill"
         case .top, .bottom, .dress, .outerwear:
             return "tshirt.fill"
+        case .other:
+            return "tag.fill"
         }
     }
 
@@ -36,7 +38,7 @@ struct GarmentGlyph: View {
             return SaltColor.primarySoft
         case .bottom, .shoes:
             return SaltColor.white
-        case .outerwear, .bag:
+        case .outerwear, .bag, .other:
             return SaltColor.primary.opacity(0.22)
         }
     }

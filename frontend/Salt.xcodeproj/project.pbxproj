@@ -69,6 +69,12 @@
 		00000000B100000000000088 /* ChatTurnView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000087 /* ChatTurnView.swift */; };
 		00000000B10000000000008A /* SaltChatExchange.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000089 /* SaltChatExchange.swift */; };
 		00000000B10000000000008C /* LiveChatDataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000008B /* LiveChatDataSource.swift */; };
+		00000000B10000000000008E /* ListingExchange.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000008D /* ListingExchange.swift */; };
+		00000000B100000000000090 /* LiveWardrobeDataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000008F /* LiveWardrobeDataSource.swift */; };
+		00000000B100000000000092 /* WardrobeLoadState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000091 /* WardrobeLoadState.swift */; };
+		00000000B100000000000094 /* WardrobeSavePlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000093 /* WardrobeSavePlan.swift */; };
+		00000000B100000000000096 /* WardrobeTaxonomy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000095 /* WardrobeTaxonomy.swift */; };
+		00000000B100000000000098 /* WardrobeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000097 /* WardrobeEditorView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -135,6 +141,12 @@
 		00000000B100000000000087 /* ChatTurnView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTurnView.swift; sourceTree = "<group>"; };
 		00000000B100000000000089 /* SaltChatExchange.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltChatExchange.swift; sourceTree = "<group>"; };
 		00000000B10000000000008B /* LiveChatDataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveChatDataSource.swift; sourceTree = "<group>"; };
+		00000000B10000000000008D /* ListingExchange.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingExchange.swift; sourceTree = "<group>"; };
+		00000000B10000000000008F /* LiveWardrobeDataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWardrobeDataSource.swift; sourceTree = "<group>"; };
+		00000000B100000000000091 /* WardrobeLoadState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeLoadState.swift; sourceTree = "<group>"; };
+		00000000B100000000000093 /* WardrobeSavePlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeSavePlan.swift; sourceTree = "<group>"; };
+		00000000B100000000000095 /* WardrobeTaxonomy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeTaxonomy.swift; sourceTree = "<group>"; };
+		00000000B100000000000097 /* WardrobeEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeEditorView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -201,6 +213,8 @@
 			children = (
 				00000000B10000000000006F /* AccountClient.swift */,
 				00000000B100000000000009 /* DataSources.swift */,
+				00000000B10000000000008D /* ListingExchange.swift */,
+				00000000B10000000000008F /* LiveWardrobeDataSource.swift */,
 				00000000B100000000000089 /* SaltChatExchange.swift */,
 				00000000B100000000000071 /* SessionStore.swift */,
 				00000000B100000000000073 /* SignedInAccountDataSource.swift */,
@@ -219,6 +233,8 @@
 				00000000B10000000000006B /* SignupForm.swift */,
 				00000000B10000000000000F /* WardrobeFilter.swift */,
 				00000000B100000000000011 /* WardrobeInsights.swift */,
+				00000000B100000000000091 /* WardrobeLoadState.swift */,
+				00000000B100000000000093 /* WardrobeSavePlan.swift */,
 			);
 			path = Logic;
 			sourceTree = "<group>";
@@ -247,6 +263,7 @@
 				00000000B100000000000025 /* GarmentKind.swift */,
 				00000000B100000000000027 /* Marketplace.swift */,
 				00000000B100000000000029 /* WardrobeItem.swift */,
+				00000000B100000000000095 /* WardrobeTaxonomy.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -337,6 +354,7 @@
 			isa = PBXGroup;
 			children = (
 				00000000B100000000000068 /* Components */,
+				00000000B100000000000097 /* WardrobeEditorView.swift */,
 				00000000B100000000000053 /* WardrobeView.swift */,
 				00000000B100000000000055 /* WardrobeViewModel.swift */,
 			);
@@ -491,6 +509,12 @@
 				00000000B100000000000084 /* AgentTurnReducer.swift in Sources */,
 				00000000B100000000000086 /* ServerSentEventParser.swift in Sources */,
 				00000000B100000000000088 /* ChatTurnView.swift in Sources */,
+				00000000B10000000000008E /* ListingExchange.swift in Sources */,
+				00000000B100000000000090 /* LiveWardrobeDataSource.swift in Sources */,
+				00000000B100000000000092 /* WardrobeLoadState.swift in Sources */,
+				00000000B100000000000094 /* WardrobeSavePlan.swift in Sources */,
+				00000000B100000000000096 /* WardrobeTaxonomy.swift in Sources */,
+				00000000B100000000000098 /* WardrobeEditorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

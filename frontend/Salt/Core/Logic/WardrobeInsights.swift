@@ -47,7 +47,7 @@ struct WardrobeInsights {
         }
         if offers.count == 1, let (item, offer) = offers.first {
             let amount = MoneyFormat.gbp(pence: offer.pence)
-            let asking = MoneyFormat.gbp(pence: item.pricePence)
+            let asking = item.pricePence.map { MoneyFormat.gbp(pence: $0) } ?? "no price"
             return "There's an offer on the \(item.title): \(amount) on \(offer.marketplace.displayName), against \(asking) asking. I won't reply to buyers on my own yet."
         }
         let parts = offers.map { item, offer in
@@ -58,7 +58,7 @@ struct WardrobeInsights {
     }
 
     func priceRangeSentence(focusing marketplaces: [Marketplace]) -> String {
-        let prices = scopedItems(focusing: marketplaces).map(\.pricePence)
+        let prices = scopedItems(focusing: marketplaces).compactMap(\.pricePence)
         guard let low = prices.min(), let high = prices.max() else {
             return "There are no asking prices to show."
         }

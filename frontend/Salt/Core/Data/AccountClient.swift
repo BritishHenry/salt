@@ -168,7 +168,7 @@ enum AccountExchange {
         )
     }
 
-    private static func serverError(_ response: HTTPResponse) -> AccountAPIError {
+    static func serverError(_ response: HTTPResponse) -> AccountAPIError {
         if let payload = try? JSONDecoder().decode(APIErrorBody.self, from: response.data) {
             let message = payload.error.trimmingCharacters(in: .whitespacesAndNewlines)
             if !message.isEmpty {

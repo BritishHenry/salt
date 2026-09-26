@@ -70,9 +70,36 @@ struct MockChatDataSource: ChatDataSource {
 }
 
 struct MockWardrobeDataSource: WardrobeDataSource {
-    func loadItems() -> [WardrobeItem] {
+    func loadItems() async throws -> [WardrobeItem] {
         MockWardrobe.items
     }
+
+    func saveItem(_ write: WardrobeItemWrite, id: String?) async throws -> WardrobeItem {
+        WardrobeItem(
+            id: id ?? "mock-new",
+            title: write.title,
+            brand: write.brand,
+            size: write.sizeLabel,
+            condition: write.condition,
+            pricePence: write.priceMinor,
+            currency: write.currency,
+            kind: GarmentKind.resolve(category: write.category),
+            category: write.category
+        )
+    }
+
+    func uploadPhoto(itemID _: String, filename _: String, data _: Data, mimeType _: String) async throws {}
+
+    func deletePhoto(itemID _: String, position _: Int) async throws {}
+
+    func createListing(
+        itemID _: String,
+        marketplace _: Marketplace,
+        priceMinor _: Int?,
+        currency _: String
+    ) async throws {}
+
+    func updateListing(itemID _: String, marketplace _: Marketplace, status _: String) async throws {}
 }
 
 struct MockAccountDataSource: AccountDataSource {
