@@ -1,10 +1,13 @@
 """Tools Salt uses to hand work to the other agents.
 
-The definitions are part of every chat request. Calls are not run yet:
-Salt answers the seller directly until each specialist can take a job.
+The definitions are part of every chat request. Willow can be run through
+call_tool. The other specialists are still descriptions only, and this chat
+turn answers the seller directly.
 """
 
 from services.grok import responses_function_tool
+
+from agents.tools import TOOLS
 
 _REQUEST = {
     "type": "object",
@@ -22,14 +25,7 @@ _REQUEST = {
 def specialist_tools():
     """Function tools for Willow, Bobby, Jacob, Maggie, and Steve."""
     return [
-        responses_function_tool(
-            "willow",
-            _REQUEST,
-            description=(
-                "Connect or refresh the seller's Vinted, Depop, or eBay session. "
-                "Use when a marketplace login needs the seller or a stored session should be checked."
-            ),
-        ),
+        TOOLS["willow"].schema,
         responses_function_tool(
             "bobby",
             _REQUEST,
