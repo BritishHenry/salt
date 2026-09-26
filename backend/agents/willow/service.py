@@ -235,7 +235,7 @@ def _save(connection, *, status, message, username="", checked, password=""):
     message = _redact(message, password)
     connection.status = status
     connection.error = "" if status == "connected" else message
-    if username:
+    if username and status == "connected":
         connection.external_username = _redact(username, password)
     fields = ["status", "error", "external_username"]
     if checked or status == "connected":
