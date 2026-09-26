@@ -525,9 +525,9 @@ class WillowToolTests(TestCase):
         self.assertEqual(browser.released, [])
 
     def test_unknown_tool_and_bad_arguments_are_results(self):
-        unknown = call_tool("steve", self.user, {"request": "answer the buyer"})
+        unknown = call_tool("nobody", self.user, {"request": "answer the buyer"})
         self.assertEqual(unknown["status"], "failed")
-        self.assertIn("Unknown tool steve", unknown["message"])
+        self.assertIn("Unknown tool nobody", unknown["message"])
         invalid = call_tool("willow", self.user, ["connect"])
         self.assertEqual(invalid["status"], "failed")
         self.assertIn("object", invalid["message"])

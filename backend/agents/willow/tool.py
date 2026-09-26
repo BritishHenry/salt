@@ -46,7 +46,7 @@ def willow_schema():
     )
 
 
-def handle_willow(user, arguments):
+def handle_willow(user, arguments, *, grok=None, browser=None):
     """Run one Willow action. Invalid arguments come back as a failed result."""
     action = arguments.get("action")
     marketplace = arguments.get("marketplace")
