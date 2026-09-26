@@ -7,16 +7,100 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10000000000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* ContentView.swift */; };
-		A10000000000000000000003 /* SaltApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* SaltApp.swift */; };
 		A10000000000000000000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* Assets.xcassets */; };
+		00000000B100000000000002 /* AppDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000001 /* AppDependencies.swift */; };
+		00000000B100000000000004 /* AppTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000003 /* AppTab.swift */; };
+		00000000B100000000000006 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000005 /* RootTabView.swift */; };
+		00000000B100000000000008 /* SaltAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000007 /* SaltAppearance.swift */; };
+		00000000B10000000000000A /* DataSources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000009 /* DataSources.swift */; };
+		00000000B10000000000000C /* ListPhrase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000000B /* ListPhrase.swift */; };
+		00000000B10000000000000E /* MoneyFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000000D /* MoneyFormat.swift */; };
+		00000000B100000000000010 /* WardrobeFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000000F /* WardrobeFilter.swift */; };
+		00000000B100000000000012 /* WardrobeInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000011 /* WardrobeInsights.swift */; };
+		00000000B100000000000014 /* MockAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000013 /* MockAccount.swift */; };
+		00000000B100000000000016 /* MockCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000015 /* MockCopy.swift */; };
+		00000000B100000000000018 /* MockDataSources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000017 /* MockDataSources.swift */; };
+		00000000B10000000000001A /* MockSaltResponder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000019 /* MockSaltResponder.swift */; };
+		00000000B10000000000001C /* MockTranscript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000001B /* MockTranscript.swift */; };
+		00000000B10000000000001E /* MockWardrobe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000001D /* MockWardrobe.swift */; };
+		00000000B100000000000020 /* MockWeek.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000001F /* MockWeek.swift */; };
+		00000000B100000000000022 /* AccountProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000021 /* AccountProfile.swift */; };
+		00000000B100000000000024 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000023 /* ChatMessage.swift */; };
+		00000000B100000000000026 /* GarmentKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000025 /* GarmentKind.swift */; };
+		00000000B100000000000028 /* Marketplace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000027 /* Marketplace.swift */; };
+		00000000B10000000000002A /* WardrobeItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000029 /* WardrobeItem.swift */; };
+		00000000B10000000000002C /* SaltChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000002B /* SaltChip.swift */; };
+		00000000B10000000000002E /* SaltMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000002D /* SaltMark.swift */; };
+		00000000B100000000000030 /* SaltScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000002F /* SaltScreen.swift */; };
+		00000000B100000000000032 /* SaltScreenHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000031 /* SaltScreenHeader.swift */; };
+		00000000B100000000000034 /* WrappingHStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000033 /* WrappingHStack.swift */; };
+		00000000B100000000000036 /* SaltColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000035 /* SaltColor.swift */; };
+		00000000B100000000000038 /* SaltFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000037 /* SaltFont.swift */; };
+		00000000B10000000000003A /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000039 /* AccountView.swift */; };
+		00000000B10000000000003C /* AccountViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000003B /* AccountViewModel.swift */; };
+		00000000B10000000000003E /* SettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000003D /* SettingsSection.swift */; };
+		00000000B100000000000040 /* ChatBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000003F /* ChatBubble.swift */; };
+		00000000B100000000000042 /* ChatComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000041 /* ChatComposer.swift */; };
+		00000000B100000000000044 /* SaltChatHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000043 /* SaltChatHeader.swift */; };
+		00000000B100000000000046 /* SuggestionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000045 /* SuggestionRow.swift */; };
+		00000000B100000000000048 /* TypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000047 /* TypingIndicator.swift */; };
+		00000000B10000000000004A /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000049 /* HomeView.swift */; };
+		00000000B10000000000004C /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000004B /* HomeViewModel.swift */; };
+		00000000B10000000000004E /* GarmentGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000004D /* GarmentGlyph.swift */; };
+		00000000B100000000000050 /* MarketplaceMarks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000004F /* MarketplaceMarks.swift */; };
+		00000000B100000000000052 /* WardrobeItemCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000051 /* WardrobeItemCard.swift */; };
+		00000000B100000000000054 /* WardrobeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000053 /* WardrobeView.swift */; };
+		00000000B100000000000056 /* WardrobeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000055 /* WardrobeViewModel.swift */; };
+		00000000B100000000000058 /* SaltApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000057 /* SaltApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A10000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		A10000000000000000000004 /* SaltApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltApp.swift; sourceTree = "<group>"; };
 		A10000000000000000000006 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10000000000000000000007 /* Salt.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Salt.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		00000000B100000000000001 /* AppDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDependencies.swift; sourceTree = "<group>"; };
+		00000000B100000000000003 /* AppTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTab.swift; sourceTree = "<group>"; };
+		00000000B100000000000005 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
+		00000000B100000000000007 /* SaltAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltAppearance.swift; sourceTree = "<group>"; };
+		00000000B100000000000009 /* DataSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSources.swift; sourceTree = "<group>"; };
+		00000000B10000000000000B /* ListPhrase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListPhrase.swift; sourceTree = "<group>"; };
+		00000000B10000000000000D /* MoneyFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyFormat.swift; sourceTree = "<group>"; };
+		00000000B10000000000000F /* WardrobeFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeFilter.swift; sourceTree = "<group>"; };
+		00000000B100000000000011 /* WardrobeInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeInsights.swift; sourceTree = "<group>"; };
+		00000000B100000000000013 /* MockAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAccount.swift; sourceTree = "<group>"; };
+		00000000B100000000000015 /* MockCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCopy.swift; sourceTree = "<group>"; };
+		00000000B100000000000017 /* MockDataSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDataSources.swift; sourceTree = "<group>"; };
+		00000000B100000000000019 /* MockSaltResponder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSaltResponder.swift; sourceTree = "<group>"; };
+		00000000B10000000000001B /* MockTranscript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockTranscript.swift; sourceTree = "<group>"; };
+		00000000B10000000000001D /* MockWardrobe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockWardrobe.swift; sourceTree = "<group>"; };
+		00000000B10000000000001F /* MockWeek.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockWeek.swift; sourceTree = "<group>"; };
+		00000000B100000000000021 /* AccountProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountProfile.swift; sourceTree = "<group>"; };
+		00000000B100000000000023 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+		00000000B100000000000025 /* GarmentKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarmentKind.swift; sourceTree = "<group>"; };
+		00000000B100000000000027 /* Marketplace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Marketplace.swift; sourceTree = "<group>"; };
+		00000000B100000000000029 /* WardrobeItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeItem.swift; sourceTree = "<group>"; };
+		00000000B10000000000002B /* SaltChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltChip.swift; sourceTree = "<group>"; };
+		00000000B10000000000002D /* SaltMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltMark.swift; sourceTree = "<group>"; };
+		00000000B10000000000002F /* SaltScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltScreen.swift; sourceTree = "<group>"; };
+		00000000B100000000000031 /* SaltScreenHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltScreenHeader.swift; sourceTree = "<group>"; };
+		00000000B100000000000033 /* WrappingHStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WrappingHStack.swift; sourceTree = "<group>"; };
+		00000000B100000000000035 /* SaltColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltColor.swift; sourceTree = "<group>"; };
+		00000000B100000000000037 /* SaltFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltFont.swift; sourceTree = "<group>"; };
+		00000000B100000000000039 /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
+		00000000B10000000000003B /* AccountViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountViewModel.swift; sourceTree = "<group>"; };
+		00000000B10000000000003D /* SettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSection.swift; sourceTree = "<group>"; };
+		00000000B10000000000003F /* ChatBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatBubble.swift; sourceTree = "<group>"; };
+		00000000B100000000000041 /* ChatComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatComposer.swift; sourceTree = "<group>"; };
+		00000000B100000000000043 /* SaltChatHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltChatHeader.swift; sourceTree = "<group>"; };
+		00000000B100000000000045 /* SuggestionRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionRow.swift; sourceTree = "<group>"; };
+		00000000B100000000000047 /* TypingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingIndicator.swift; sourceTree = "<group>"; };
+		00000000B100000000000049 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		00000000B10000000000004B /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
+		00000000B10000000000004D /* GarmentGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarmentGlyph.swift; sourceTree = "<group>"; };
+		00000000B10000000000004F /* MarketplaceMarks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketplaceMarks.swift; sourceTree = "<group>"; };
+		00000000B100000000000051 /* WardrobeItemCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeItemCard.swift; sourceTree = "<group>"; };
+		00000000B100000000000053 /* WardrobeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeView.swift; sourceTree = "<group>"; };
+		00000000B100000000000055 /* WardrobeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeViewModel.swift; sourceTree = "<group>"; };
+		00000000B100000000000057 /* SaltApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -33,19 +117,181 @@
 		G10000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				G10000000000000000000002 /* Salt */,
+				00000000B100000000000059 /* Salt */,
 				G10000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		G10000000000000000000002 /* Salt */ = {
+		00000000B100000000000059 /* Salt */ = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000004 /* SaltApp.swift */,
-				A10000000000000000000002 /* ContentView.swift */,
+				00000000B10000000000005A /* App */,
+				00000000B10000000000005B /* Core */,
+				00000000B100000000000060 /* Design */,
+				00000000B100000000000062 /* Features */,
+				00000000B100000000000057 /* SaltApp.swift */,
 				A10000000000000000000006 /* Assets.xcassets */,
 			);
 			path = Salt;
+			sourceTree = "<group>";
+		};
+		00000000B10000000000005A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B100000000000001 /* AppDependencies.swift */,
+				00000000B100000000000003 /* AppTab.swift */,
+				00000000B100000000000005 /* RootTabView.swift */,
+				00000000B100000000000007 /* SaltAppearance.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		00000000B10000000000005B /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B10000000000005C /* Data */,
+				00000000B10000000000005D /* Logic */,
+				00000000B10000000000005E /* Mock */,
+				00000000B10000000000005F /* Models */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		00000000B10000000000005C /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B100000000000009 /* DataSources.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		00000000B10000000000005D /* Logic */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B10000000000000B /* ListPhrase.swift */,
+				00000000B10000000000000D /* MoneyFormat.swift */,
+				00000000B10000000000000F /* WardrobeFilter.swift */,
+				00000000B100000000000011 /* WardrobeInsights.swift */,
+			);
+			path = Logic;
+			sourceTree = "<group>";
+		};
+		00000000B10000000000005E /* Mock */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B100000000000013 /* MockAccount.swift */,
+				00000000B100000000000015 /* MockCopy.swift */,
+				00000000B100000000000017 /* MockDataSources.swift */,
+				00000000B100000000000019 /* MockSaltResponder.swift */,
+				00000000B10000000000001B /* MockTranscript.swift */,
+				00000000B10000000000001D /* MockWardrobe.swift */,
+				00000000B10000000000001F /* MockWeek.swift */,
+			);
+			path = Mock;
+			sourceTree = "<group>";
+		};
+		00000000B10000000000005F /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B100000000000021 /* AccountProfile.swift */,
+				00000000B100000000000023 /* ChatMessage.swift */,
+				00000000B100000000000025 /* GarmentKind.swift */,
+				00000000B100000000000027 /* Marketplace.swift */,
+				00000000B100000000000029 /* WardrobeItem.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		00000000B100000000000060 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B100000000000061 /* Components */,
+				00000000B100000000000035 /* SaltColor.swift */,
+				00000000B100000000000037 /* SaltFont.swift */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		00000000B100000000000061 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B10000000000002B /* SaltChip.swift */,
+				00000000B10000000000002D /* SaltMark.swift */,
+				00000000B10000000000002F /* SaltScreen.swift */,
+				00000000B100000000000031 /* SaltScreenHeader.swift */,
+				00000000B100000000000033 /* WrappingHStack.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		00000000B100000000000062 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B100000000000063 /* Account */,
+				00000000B100000000000065 /* Home */,
+				00000000B100000000000067 /* Wardrobe */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		00000000B100000000000063 /* Account */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B100000000000064 /* Components */,
+				00000000B100000000000039 /* AccountView.swift */,
+				00000000B10000000000003B /* AccountViewModel.swift */,
+			);
+			path = Account;
+			sourceTree = "<group>";
+		};
+		00000000B100000000000064 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B10000000000003D /* SettingsSection.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		00000000B100000000000065 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B100000000000066 /* Components */,
+				00000000B100000000000049 /* HomeView.swift */,
+				00000000B10000000000004B /* HomeViewModel.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		00000000B100000000000066 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B10000000000003F /* ChatBubble.swift */,
+				00000000B100000000000041 /* ChatComposer.swift */,
+				00000000B100000000000043 /* SaltChatHeader.swift */,
+				00000000B100000000000045 /* SuggestionRow.swift */,
+				00000000B100000000000047 /* TypingIndicator.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		00000000B100000000000067 /* Wardrobe */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B100000000000068 /* Components */,
+				00000000B100000000000053 /* WardrobeView.swift */,
+				00000000B100000000000055 /* WardrobeViewModel.swift */,
+			);
+			path = Wardrobe;
+			sourceTree = "<group>";
+		};
+		00000000B100000000000068 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B10000000000004D /* GarmentGlyph.swift */,
+				00000000B10000000000004F /* MarketplaceMarks.swift */,
+				00000000B100000000000051 /* WardrobeItemCard.swift */,
+			);
+			path = Components;
 			sourceTree = "<group>";
 		};
 		G10000000000000000000003 /* Products */ = {
@@ -125,8 +371,50 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000001 /* ContentView.swift in Sources */,
-				A10000000000000000000003 /* SaltApp.swift in Sources */,
+				00000000B100000000000002 /* AppDependencies.swift in Sources */,
+				00000000B100000000000004 /* AppTab.swift in Sources */,
+				00000000B100000000000006 /* RootTabView.swift in Sources */,
+				00000000B100000000000008 /* SaltAppearance.swift in Sources */,
+				00000000B10000000000000A /* DataSources.swift in Sources */,
+				00000000B10000000000000C /* ListPhrase.swift in Sources */,
+				00000000B10000000000000E /* MoneyFormat.swift in Sources */,
+				00000000B100000000000010 /* WardrobeFilter.swift in Sources */,
+				00000000B100000000000012 /* WardrobeInsights.swift in Sources */,
+				00000000B100000000000014 /* MockAccount.swift in Sources */,
+				00000000B100000000000016 /* MockCopy.swift in Sources */,
+				00000000B100000000000018 /* MockDataSources.swift in Sources */,
+				00000000B10000000000001A /* MockSaltResponder.swift in Sources */,
+				00000000B10000000000001C /* MockTranscript.swift in Sources */,
+				00000000B10000000000001E /* MockWardrobe.swift in Sources */,
+				00000000B100000000000020 /* MockWeek.swift in Sources */,
+				00000000B100000000000022 /* AccountProfile.swift in Sources */,
+				00000000B100000000000024 /* ChatMessage.swift in Sources */,
+				00000000B100000000000026 /* GarmentKind.swift in Sources */,
+				00000000B100000000000028 /* Marketplace.swift in Sources */,
+				00000000B10000000000002A /* WardrobeItem.swift in Sources */,
+				00000000B10000000000002C /* SaltChip.swift in Sources */,
+				00000000B10000000000002E /* SaltMark.swift in Sources */,
+				00000000B100000000000030 /* SaltScreen.swift in Sources */,
+				00000000B100000000000032 /* SaltScreenHeader.swift in Sources */,
+				00000000B100000000000034 /* WrappingHStack.swift in Sources */,
+				00000000B100000000000036 /* SaltColor.swift in Sources */,
+				00000000B100000000000038 /* SaltFont.swift in Sources */,
+				00000000B10000000000003A /* AccountView.swift in Sources */,
+				00000000B10000000000003C /* AccountViewModel.swift in Sources */,
+				00000000B10000000000003E /* SettingsSection.swift in Sources */,
+				00000000B100000000000040 /* ChatBubble.swift in Sources */,
+				00000000B100000000000042 /* ChatComposer.swift in Sources */,
+				00000000B100000000000044 /* SaltChatHeader.swift in Sources */,
+				00000000B100000000000046 /* SuggestionRow.swift in Sources */,
+				00000000B100000000000048 /* TypingIndicator.swift in Sources */,
+				00000000B10000000000004A /* HomeView.swift in Sources */,
+				00000000B10000000000004C /* HomeViewModel.swift in Sources */,
+				00000000B10000000000004E /* GarmentGlyph.swift in Sources */,
+				00000000B100000000000050 /* MarketplaceMarks.swift in Sources */,
+				00000000B100000000000052 /* WardrobeItemCard.swift in Sources */,
+				00000000B100000000000054 /* WardrobeView.swift in Sources */,
+				00000000B100000000000056 /* WardrobeViewModel.swift in Sources */,
+				00000000B100000000000058 /* SaltApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
