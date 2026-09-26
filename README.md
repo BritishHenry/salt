@@ -46,13 +46,11 @@ The key details are:
 - Uses grokbot agents to help manage the sales - including haggling and financial reporting
 - Gives full financial reports so they can run it like a small business
 
-
-
 Note: 'Salt' is the name of my mum's cat, hence the name. The user-facing agents will all be named after my mum's cats.
 
 ### The tech stack
 
-Django for backend, and Flutter/Dart for frontend.
+Django for backend, and Swift for frontend.
 
 Use GrokBots to handle:
 

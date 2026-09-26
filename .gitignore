@@ -8,3 +8,18 @@ build/
 .env.*
 !.env.example
 .DS_Store
+
+db.sqlite3
+media/
+
+# Xcode
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
