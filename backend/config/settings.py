@@ -10,10 +10,17 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+from urllib.parse import unquote, urlparse
+
+from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -74,12 +81,29 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+def database_from_url(url):
+    parsed = urlparse(url)
+    if parsed.scheme not in {"postgres", "postgresql"} or not parsed.hostname:
+        raise ImproperlyConfigured("DATABASE_URL must be a PostgreSQL URL.")
+    name = parsed.path.lstrip("/")
+    if not name or parsed.username is None:
+        raise ImproperlyConfigured("DATABASE_URL must include a database name and user.")
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": name,
+        "USER": unquote(parsed.username),
+        "PASSWORD": unquote(parsed.password or ""),
+        "HOST": parsed.hostname,
+        "PORT": parsed.port or 5432,
+        "OPTIONS": {"sslmode": "require"},
     }
-}
+
+
+database_url = os.environ.get("DATABASE_URL", "").strip()
+if not database_url:
+    raise ImproperlyConfigured("DATABASE_URL is missing. Set it in backend/.env.")
+
+DATABASES = {"default": database_from_url(database_url)}
 
 
 # Password validation
