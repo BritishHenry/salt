@@ -48,6 +48,12 @@ The key details are:
 
 Note: 'Salt' is the name of my mum's cat, hence the name. The user-facing agents will all be named after my mum's cats.
 
+For the marketplaces, we will use only:
+
+- Vinted
+- Depop
+- Ebay
+
 ### The tech stack
 
 Django for backend, and Swift for frontend.
