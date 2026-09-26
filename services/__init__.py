@@ -1,1 +1,1 @@
-"""Clients for external services used by Salt agents."""
+"""External service clients shared by the Django backend and other callers."""
