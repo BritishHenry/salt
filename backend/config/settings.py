@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "payments",
 ]
 
 MIDDLEWARE = [
@@ -153,3 +154,19 @@ MEDIA_ROOT = BASE_DIR / "media"
 MAILERS = {
     "default": {"BACKEND": "django.core.mail.backends.console.EmailBackend",},
 }
+
+
+# Stripe Connect. Sellers are recipient accounts. Transfers move funds that
+# are already in this platform's Stripe balance; they do not pull marketplace
+# balances.
+STRIPE_API_VERSION = "2026-08-26.preview"
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
+STRIPE_CONNECT_RETURN_URL = os.environ.get(
+    "STRIPE_CONNECT_RETURN_URL",
+    "http://localhost:8000/api/stripe/connect/return/",
+).strip()
+STRIPE_CONNECT_REFRESH_URL = os.environ.get(
+    "STRIPE_CONNECT_REFRESH_URL",
+    "http://localhost:8000/api/stripe/connect/refresh/",
+).strip()
