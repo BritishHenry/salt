@@ -82,6 +82,23 @@ def provision(user):
     return user
 
 
+def marketplace_connections_payload(user):
+    connections = user.marketplace_connections.order_by("marketplace")
+    return {
+        "marketplaces": [
+            {
+                "marketplace": connection.marketplace,
+                "status": connection.status,
+                "external_username": connection.external_username,
+                "connected_at": _timestamp(connection.connected_at),
+                "last_checked_at": _timestamp(connection.last_checked_at),
+                "error": connection.error,
+            }
+            for connection in connections
+        ]
+    }
+
+
 def account_payload(user, token=None):
     payload = {
         "user": {
@@ -223,6 +240,12 @@ def _browser_payload(user):
         "status": "failed",
         "error": user.browser_profile_error or "Browser profile has not been created.",
     }
+
+
+def _timestamp(value):
+    if value is None:
+        return None
+    return value.isoformat()
 
 
 def _error_text(exc):

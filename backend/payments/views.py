@@ -4,7 +4,7 @@ import stripe
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from accounts.auth import user_from_request
 from listings.models import Listing
@@ -138,7 +138,7 @@ def connect_refresh(request):
 
 
 @csrf_exempt
-@require_POST
+@require_http_methods(["GET", "POST"])
 def sales(request):
     user = _user(request)
     if user is None:
@@ -146,6 +146,9 @@ def sales(request):
     seller = _seller(user)
     if seller is None:
         return JsonResponse({"error": "Seller has not started Stripe onboarding."}, status=404)
+    if request.method == "GET":
+        rows = seller.sales.order_by("-created_at", "-pk")
+        return JsonResponse({"sales": [_sale_payload(sale) for sale in rows]})
     try:
         data = _body(request)
         sale = record_sale(
