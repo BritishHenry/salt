@@ -10,6 +10,12 @@ class AccountUserCreationForm(UserCreationForm):
         model = User
         fields = ("email", "display_name")
 
+    def clean_email(self):
+        email = self.cleaned_data.get("email")
+        if email:
+            email = email.strip().lower()
+        return email
+
 
 class AccountUserChangeForm(UserChangeForm):
     class Meta(UserChangeForm.Meta):
@@ -28,6 +34,12 @@ class AccountUserChangeForm(UserChangeForm):
             "browser_profile_error",
             "stripe_provision_error",
         )
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email")
+        if email:
+            email = email.strip().lower()
+        return email
 
 
 @admin.register(User)
