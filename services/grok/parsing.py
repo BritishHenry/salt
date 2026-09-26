@@ -66,6 +66,20 @@ def extract_chat_message_text(response):
     return ""
 
 
+_REASONING_DELTA_TYPES = frozenset(
+    {
+        "response.reasoning_text.delta",
+        "response.reasoning_summary_text.delta",
+    }
+)
+_REASONING_DONE_TYPES = frozenset(
+    {
+        "response.reasoning_text.done",
+        "response.reasoning_summary_text.done",
+    }
+)
+
+
 def extract_text_delta(event):
     """Return a text fragment from one streaming event, or an empty string."""
     if not isinstance(event, dict):
@@ -79,6 +93,55 @@ def extract_text_delta(event):
         if isinstance(delta, dict) and isinstance(delta.get("content"), str):
             return delta["content"]
     return ""
+
+
+def extract_completed_output_text(event):
+    """Return the full assistant text from a completed output event, or empty."""
+    if not isinstance(event, dict):
+        return ""
+    if event.get("type") != "response.output_text.done":
+        return ""
+    text = event.get("text")
+    return text if isinstance(text, str) else ""
+
+
+def extract_reasoning_delta(event):
+    """Return a thinking fragment from one streaming event, or an empty string."""
+    if not isinstance(event, dict):
+        return ""
+    if event.get("type") in _REASONING_DELTA_TYPES:
+        delta = event.get("delta")
+        return delta if isinstance(delta, str) else ""
+    choices = event.get("choices")
+    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+        delta = choices[0].get("delta") or {}
+        if isinstance(delta, dict):
+            reasoning = delta.get("reasoning_content")
+            if isinstance(reasoning, str):
+                return reasoning
+    return ""
+
+
+def extract_completed_reasoning(event):
+    """Return a finished thinking trace when the stream did not send deltas."""
+    if not isinstance(event, dict):
+        return ""
+    if event.get("type") in _REASONING_DONE_TYPES:
+        text = event.get("text")
+        return text if isinstance(text, str) else ""
+    if event.get("type") != "response.output_item.done":
+        return ""
+    item = event.get("item")
+    if not isinstance(item, dict) or item.get("type") != "reasoning":
+        return ""
+    parts = []
+    for block in item.get("summary") or []:
+        if isinstance(block, dict) and isinstance(block.get("text"), str):
+            parts.append(block["text"])
+    for block in item.get("content") or []:
+        if isinstance(block, dict) and isinstance(block.get("text"), str):
+            parts.append(block["text"])
+    return "".join(parts)
 
 
 def parse_json_object(text):
