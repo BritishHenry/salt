@@ -1,17 +1,20 @@
-"""Tools Salt calls. Each one has a Grok Responses schema and a handler."""
+"""Tools Salt calls. Each one has a Grok Responses schema, a handler, and a presenter."""
 
+from agents.maggie.tool import handle_maggie, maggie_schema, present_maggie
 from agents.willow.tool import handle_willow, willow_schema
 
 
 class Tool:
-    def __init__(self, name, schema, handler):
+    def __init__(self, name, schema, handler, present=None):
         self.name = name
         self.schema = schema
         self.handler = handler
+        self.present = present
 
 
 TOOLS = {
     "willow": Tool("willow", willow_schema(), handle_willow),
+    "maggie": Tool("maggie", maggie_schema(), handle_maggie, present_maggie),
 }
 
 
@@ -25,15 +28,25 @@ def call_tool(name, user, arguments):
     if tool is None:
         shown = name if isinstance(name, str) and name else "that"
         return _result("", "failed", "", f"Unknown tool {shown}.")
+    present = tool.present or _clean
     if not isinstance(arguments, dict):
-        return _result("", "failed", "", "Tool arguments must be an object.")
+        return present(
+            {"status": "failed", "message": "Tool arguments must be an object."},
+            {},
+        )
     try:
         result = tool.handler(user, arguments)
     except Exception:
-        return _result("", "failed", "", "That tool could not finish. Ask the seller to try again.")
+        return present(
+            {"status": "failed", "message": "That tool could not finish. Ask the seller to try again."},
+            arguments if isinstance(arguments, dict) else {},
+        )
     if not isinstance(result, dict):
-        return _result("", "failed", "", "That tool could not finish. Ask the seller to try again.")
-    return _clean(result, arguments)
+        return present(
+            {"status": "failed", "message": "That tool could not finish. Ask the seller to try again."},
+            arguments,
+        )
+    return present(result, arguments)
 
 
 def _clean(result, arguments):

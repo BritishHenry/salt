@@ -1,8 +1,8 @@
 """Tools Salt uses to hand work to the other agents.
 
-The definitions are part of every chat request. Willow can be run through
-call_tool. The other specialists are still descriptions only, and this chat
-turn answers the seller directly.
+The definitions are part of every chat request. Willow and Maggie can be run
+through call_tool. The other specialists are still descriptions only, and this
+chat turn answers the seller directly.
 """
 
 from services.grok import responses_function_tool
@@ -42,14 +42,7 @@ def specialist_tools():
                 "and eBay, including condition and size."
             ),
         ),
-        responses_function_tool(
-            "maggie",
-            _REQUEST,
-            description=(
-                "Publish an approved listing, check its status, apply an update, "
-                "or remove the other marketplace listings when an item sells."
-            ),
-        ),
+        TOOLS["maggie"].schema,
         responses_function_tool(
             "steve",
             _REQUEST,

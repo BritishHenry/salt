@@ -27,6 +27,8 @@ from services.browser_use.models import (
     EventPage,
     Profile,
     ProfilePage,
+    Workspace,
+    WorkspaceUpload,
     QueuedMessage,
     Run,
     Secret,
@@ -374,6 +376,54 @@ class BrowserUseClient:
                 BrowserUseTimeout(session_id=session_id, message_id=message_id),
             )
 
+    def create_workspace(self, name=None):
+        """Create an empty workspace for files uploaded before a run starts.
+
+        Pass the returned id as ``workspace_id`` on :meth:`create_run`.
+        """
+        body = {}
+        if name is not None:
+            label = _profile_label(name, "name", 100)
+            if label is not None:
+                body["name"] = label
+        payload = self._transport.request("POST", "/workspaces", json_body=body)
+        return Workspace.from_api(payload)
+
+    def upload_workspace_files(self, workspace_id, files):
+        """Presign workspace uploads and PUT each file.
+
+        ``files`` is a sequence of mappings with ``name``, ``data``, and
+        ``content_type``. The returned ids are what ``attached_file_ids``
+        expects on :meth:`create_run`. The presigned PUT does not send the
+        API key.
+        """
+        if not isinstance(workspace_id, str) or not workspace_id.strip():
+            raise ValueError("workspace_id must be a non-empty string")
+        prepared = _upload_items(files)
+        payload = self._transport.request(
+            "POST",
+            f"/workspaces/{quote(workspace_id)}/files/upload",
+            json_body={
+                "files": [
+                    {
+                        "name": item["name"],
+                        "size": len(item["data"]),
+                        "contentType": item["content_type"],
+                    }
+                    for item in prepared
+                ]
+            },
+        )
+        returned = payload.get("files") if isinstance(payload, dict) else None
+        if not isinstance(returned, list) or len(returned) != len(prepared):
+            raise BrowserUseError("Browser Use did not return an upload for every file.")
+        uploads = []
+        for item, meta in zip(returned, prepared):
+            upload = WorkspaceUpload.from_api(item)
+            self._transport.put_bytes(upload.upload_url, meta["data"], meta["content_type"])
+            uploads.append(upload)
+        return tuple(uploads)
+
     def create_profile(self, name=None, user_id=None):
         """Create an empty browser profile and return it.
 
@@ -480,6 +530,46 @@ def _profile_label(value, field, limit):
     if len(label) > limit:
         raise ValueError(f"{field} must be at most {limit} characters")
     return label
+
+
+_MAX_UPLOAD_BYTES = 52_428_800
+_MAX_UPLOAD_FILES = 10
+
+
+def _upload_items(files):
+    if isinstance(files, (str, bytes)) or not isinstance(files, (list, tuple)):
+        raise ValueError("files must be a list")
+    if not 1 <= len(files) <= _MAX_UPLOAD_FILES:
+        raise ValueError("files must contain 1 to 10 files")
+    prepared = []
+    for item in files:
+        if not isinstance(item, dict):
+            raise ValueError("each file must include name, data, and content_type")
+        name = item.get("name")
+        data = item.get("data")
+        content_type = item.get("content_type") or "application/octet-stream"
+        if not isinstance(name, str) or not name.strip() or len(name.strip()) > 255:
+            raise ValueError("file name must be 1 to 255 characters")
+        if "/" in name or "\\" in name:
+            raise ValueError("file name must not include a path")
+        if not isinstance(data, (bytes, bytearray)) or len(data) < 1:
+            raise ValueError("file data must be non-empty bytes")
+        if len(data) > _MAX_UPLOAD_BYTES:
+            raise ValueError("file data must be 50MB or smaller")
+        if (
+            not isinstance(content_type, str)
+            or not content_type.strip()
+            or len(content_type.strip()) > 255
+        ):
+            raise ValueError("content_type must be a mime type")
+        prepared.append(
+            {
+                "name": name.strip(),
+                "data": bytes(data),
+                "content_type": content_type.strip(),
+            }
+        )
+    return prepared
 
 
 def _secret_bindings_body(bindings):

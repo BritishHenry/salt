@@ -69,9 +69,11 @@ def record_sale(
             raise PaymentError("Listing marketplace does not match the sale.")
     try:
         with transaction.atomic():
+            pending_delist = []
             if listing is not None:
                 item = Item.objects.select_for_update().get(pk=listing.item_id)
                 listing = item.listings.select_for_update().get(pk=listing.pk)
+                pending_delist = _open_copies(item, listing.pk)
             sale = MarketplaceSale.objects.create(
                 seller=seller,
                 listing=listing,
@@ -82,6 +84,10 @@ def record_sale(
             )
             if listing is not None:
                 listing.mark_sold()
+            if pending_delist:
+                user_id = seller.user_id
+                targets = tuple(pending_delist)
+                transaction.on_commit(lambda: _delist_sold_copies(user_id, targets))
             return sale
     except (Item.DoesNotExist, Listing.DoesNotExist) as exc:
         raise PaymentError("Listing not found.", status=404) from exc
@@ -89,6 +95,27 @@ def record_sale(
         raise PaymentError(
             "A sale with this marketplace id is already recorded.", status=409
         ) from exc
+
+
+def _open_copies(item, sold_listing_id):
+    """Live copies that still need to come down on the marketplace."""
+    targets = []
+    for row in item.listings.all():
+        if row.pk == sold_listing_id or not row.external_url:
+            continue
+        if row.status in (
+            Listing.Status.LIVE,
+            Listing.Status.PAUSED,
+            Listing.Status.PUBLISHING,
+        ):
+            targets.append((row.pk, row.status))
+    return targets
+
+
+def _delist_sold_copies(user_id, targets):
+    from agents.maggie.publish import delist_after_sale
+
+    delist_after_sale(user_id, targets)
 
 
 def authorize_sale(*, seller, sale_id, user):
