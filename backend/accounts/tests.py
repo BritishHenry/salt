@@ -2,9 +2,10 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 
-from accounts.models import ApiToken, User
+from accounts.models import ApiToken, MarketplaceConnection, User
 from payments.models import Seller
 from payments.stripe_api import StripeCallError, create_recipient_account
 from services.browser_use.models import Profile, ProfilePage
@@ -222,6 +223,33 @@ class AccountApiTests(TestCase):
         self.assertEqual(self.browser.created, [])
         user.refresh_from_db()
         self.assertEqual(user.browser_profile_id, "prof_existing")
+
+
+class MarketplaceConnectionTests(TestCase):
+    def test_create_user_opens_three_marketplace_connections(self):
+        user = User.objects.create_user(
+            email="ada@example.com", display_name="Ada", password=PASSWORD
+        )
+        rows = user.marketplace_connections.order_by("marketplace")
+        self.assertEqual(
+            list(rows.values_list("marketplace", "status")),
+            [
+                ("depop", MarketplaceConnection.Status.NOT_CONNECTED),
+                ("ebay", MarketplaceConnection.Status.NOT_CONNECTED),
+                ("vinted", MarketplaceConnection.Status.NOT_CONNECTED),
+            ],
+        )
+
+    def test_one_connection_per_marketplace(self):
+        user = User.objects.create_user(
+            email="ada@example.com", display_name="Ada", password=PASSWORD
+        )
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                MarketplaceConnection.objects.create(
+                    user=user,
+                    marketplace=MarketplaceConnection.Marketplace.VINTED,
+                )
 
 
 class RecipientIdempotencyTests(TestCase):

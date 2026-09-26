@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
-from accounts.models import ApiToken, User
+from accounts.models import ApiToken, MarketplaceConnection, User
 
 
 class AccountUserCreationForm(UserCreationForm):
@@ -42,10 +42,25 @@ class AccountUserChangeForm(UserChangeForm):
         return email
 
 
+class MarketplaceConnectionInline(admin.TabularInline):
+    model = MarketplaceConnection
+    extra = 0
+    fields = (
+        "marketplace",
+        "status",
+        "external_username",
+        "last_checked_at",
+        "error",
+    )
+    readonly_fields = ("marketplace", "last_checked_at")
+    can_delete = False
+
+
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     form = AccountUserChangeForm
     add_form = AccountUserCreationForm
+    inlines = (MarketplaceConnectionInline,)
     ordering = ("email",)
     list_display = ("email", "display_name", "is_staff", "browser_profile_status")
     search_fields = ("email", "display_name")
@@ -80,6 +95,11 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
     )
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not change:
+            User.objects.ensure_marketplace_connections(obj)
 
 
 @admin.register(ApiToken)

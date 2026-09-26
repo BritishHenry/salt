@@ -16,7 +16,22 @@ class UserManager(BaseUserManager):
         user = self.model(email=email, display_name=display_name, **extra)
         user.set_password(password)
         user.save(using=self._db)
+        self.ensure_marketplace_connections(user)
         return user
+
+    def ensure_marketplace_connections(self, user):
+        existing = set(
+            MarketplaceConnection.objects.using(self._db)
+            .filter(user=user)
+            .values_list("marketplace", flat=True)
+        )
+        missing = [
+            MarketplaceConnection(user=user, marketplace=marketplace)
+            for marketplace in MarketplaceConnection.Marketplace.values
+            if marketplace not in existing
+        ]
+        if missing:
+            MarketplaceConnection.objects.using(self._db).bulk_create(missing)
 
     def create_superuser(self, email, display_name, password=None, **extra):
         extra.setdefault("is_staff", True)
@@ -64,3 +79,43 @@ class ApiToken(models.Model):
 
     def __str__(self):
         return f"API token for {self.user}"
+
+
+class MarketplaceConnection(models.Model):
+    class Marketplace(models.TextChoices):
+        VINTED = "vinted", "Vinted"
+        DEPOP = "depop", "Depop"
+        EBAY = "ebay", "eBay"
+
+    class Status(models.TextChoices):
+        NOT_CONNECTED = "not_connected", "Not connected"
+        CONNECTED = "connected", "Connected"
+        NEEDS_LOGIN = "needs_login", "Needs login"
+        FAILED = "failed", "Failed"
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="marketplace_connections",
+    )
+    marketplace = models.CharField(max_length=16, choices=Marketplace.choices)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.NOT_CONNECTED,
+    )
+    external_username = models.CharField(max_length=255, blank=True)
+    connected_at = models.DateTimeField(null=True, blank=True)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    error = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "marketplace"],
+                name="unique_user_marketplace_connection",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.marketplace} for {self.user}"
