@@ -2,9 +2,15 @@ import SwiftUI
 
 struct AccountView: View {
     @StateObject private var viewModel: AccountViewModel
+    @Environment(\.openURL) private var openURL
+    @State private var confirmingLogout = false
 
     init(dataSource: any AccountDataSource = MockAccountDataSource()) {
         _viewModel = StateObject(wrappedValue: AccountViewModel(dataSource: dataSource))
+    }
+
+    init(session: SessionController) {
+        _viewModel = StateObject(wrappedValue: AccountViewModel(session: session))
     }
 
     var body: some View {
@@ -13,8 +19,25 @@ struct AccountView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     SaltScreenHeader(title: "Account", subtitle: "Your selling setup")
                     AccountProfileHeader(profile: viewModel.profile)
+                    if let note = viewModel.profile.statusNote {
+                        Text(note)
+                            .font(SaltFont.body)
+                            .foregroundStyle(SaltColor.cocoa)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                            .background(SaltColor.peach, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
                     ForEach(viewModel.profile.sections) { section in
                         SettingsSection(section: section)
+                    }
+                    if viewModel.canManageSession {
+                        sessionActions
+                    }
+                    if let banner = viewModel.banner {
+                        Text(banner)
+                            .font(SaltFont.body)
+                            .foregroundStyle(SaltColor.cocoa)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     footer
                 }
@@ -22,6 +45,63 @@ struct AccountView: View {
                 .padding(.bottom, 12)
             }
             .accessibilityIdentifier("account.settings")
+        }
+        .confirmationDialog("Log out of Salt?", isPresented: $confirmingLogout, titleVisibility: .visible) {
+            Button("Log out", role: .destructive) {
+                viewModel.logOut()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private var sessionActions: some View {
+        VStack(spacing: 12) {
+            if let raw = viewModel.profile.stripeOnboardingURL, let url = URL(string: raw) {
+                Button {
+                    openURL(url)
+                } label: {
+                    Text("Finish payout setup")
+                        .font(SaltFont.headline)
+                        .foregroundStyle(SaltColor.onPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 52)
+                        .background(SaltColor.primary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isWorking)
+                .accessibilityIdentifier("account.payouts")
+            }
+            if viewModel.profile.needsProvisionRetry {
+                Button {
+                    viewModel.retrySetup()
+                } label: {
+                    Text(viewModel.isWorking ? "Trying again" : "Try setup again")
+                        .font(SaltFont.headline)
+                        .foregroundStyle(SaltColor.cocoa)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 52)
+                        .background(SaltColor.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(SaltColor.hairline, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isWorking)
+                .accessibilityIdentifier("account.retry")
+            }
+            Button {
+                confirmingLogout = true
+            } label: {
+                Text("Log out")
+                    .font(SaltFont.chip)
+                    .foregroundStyle(SaltColor.cocoa)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.isWorking)
+            .accessibilityIdentifier("account.logout")
         }
     }
 

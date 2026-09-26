@@ -1,4 +1,4 @@
-/// v1 composition root. Swap these data sources when the backend exists.
+/// Composition root. Chat and wardrobe stay on mock data until those APIs exist.
 struct AppDependencies {
     var chat: any ChatDataSource
     var wardrobe: any WardrobeDataSource
@@ -9,4 +9,12 @@ struct AppDependencies {
         wardrobe: MockWardrobeDataSource(),
         account: MockAccountDataSource()
     )
+
+    static func signedIn(_ account: SignedInAccount) -> AppDependencies {
+        AppDependencies(
+            chat: MockChatDataSource(),
+            wardrobe: MockWardrobeDataSource(),
+            account: SignedInAccountDataSource(account: account)
+        )
+    }
 }

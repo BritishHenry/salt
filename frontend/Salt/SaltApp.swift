@@ -9,7 +9,7 @@ struct SaltApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootTabView()
+            AppGate()
         }
     }
 }
