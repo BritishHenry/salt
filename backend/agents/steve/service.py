@@ -196,6 +196,12 @@ def _offer(user, arguments, client):
         return _failed("amount_minor must be a positive integer.", thread)
     if thread.item_id is None:
         return _escalate(thread, "I don't know which item this offer is for.")
+    if thread.status == BuyerThread.Status.CLOSED:
+        return _result(
+            "ready",
+            "This offer was already accepted.",
+            [_thread_row(thread, "This offer was already accepted.")],
+        )
     floor = thread.item.min_offer_minor
     if floor is None:
         return _needs_seller(
@@ -475,7 +481,8 @@ def _browse(client, *, task, profile_id, output_schema):
         try:
             client.release(created.session_id)
         except Exception:
-            outcome = {"kind": "crashed"}
+            if outcome.get("kind") not in {"done", "timeout"}:
+                outcome = {"kind": "crashed"}
     return outcome
 
 
