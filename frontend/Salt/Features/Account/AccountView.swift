@@ -46,6 +46,9 @@ struct AccountView: View {
             }
             .accessibilityIdentifier("account.settings")
         }
+        .onAppear {
+            Task { await viewModel.refresh() }
+        }
         .confirmationDialog("Log out of Salt?", isPresented: $confirmingLogout, titleVisibility: .visible) {
             Button("Log out", role: .destructive) {
                 viewModel.logOut()

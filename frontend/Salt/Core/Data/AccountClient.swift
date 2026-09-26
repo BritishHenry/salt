@@ -164,7 +164,8 @@ enum AccountExchange {
             token: token,
             user: payload.user,
             stripe: payload.stripe,
-            browserProfile: payload.browserProfile
+            browserProfile: payload.browserProfile,
+            marketplaces: payload.marketplaces
         )
     }
 
@@ -218,12 +219,23 @@ private struct AccountPayload: Decodable {
     var user: AccountUser
     var stripe: StripeProvision
     var browserProfile: BrowserProvision
+    var marketplaces: [MarketplaceLink]
 
     enum CodingKeys: String, CodingKey {
         case token
         case user
         case stripe
         case browserProfile = "browser_profile"
+        case marketplaces
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        token = try container.decodeIfPresent(String.self, forKey: .token)
+        user = try container.decode(AccountUser.self, forKey: .user)
+        stripe = try container.decode(StripeProvision.self, forKey: .stripe)
+        browserProfile = try container.decode(BrowserProvision.self, forKey: .browserProfile)
+        marketplaces = try container.decodeIfPresent([MarketplaceLink].self, forKey: .marketplaces) ?? []
     }
 }
 

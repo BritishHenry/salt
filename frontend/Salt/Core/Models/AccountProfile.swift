@@ -14,6 +14,7 @@ struct AccountSection: Identifiable, Equatable, Codable, Hashable, Sendable {
     let id: String
     let title: String
     let rows: [AccountRow]
+    var note: String? = nil
 }
 
 struct AccountRow: Identifiable, Equatable, Codable, Hashable, Sendable {

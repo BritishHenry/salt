@@ -10,6 +10,12 @@ struct SettingsSection: View {
                 .foregroundStyle(SaltColor.cocoa)
                 .padding(.leading, 4)
                 .accessibilityAddTraits(.isHeader)
+            if let note = section.note?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
+                Text(note)
+                    .font(SaltFont.caption)
+                    .foregroundStyle(SaltColor.cocoa)
+                    .padding(.leading, 4)
+            }
             VStack(spacing: 0) {
                 ForEach(Array(section.rows.enumerated()), id: \.element.id) { index, row in
                     rowView(row)

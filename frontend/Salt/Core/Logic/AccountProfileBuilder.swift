@@ -12,7 +12,7 @@ enum AccountProfileBuilder {
                 profileSection(account),
                 payoutsSection(account),
                 browserSection(account),
-                marketplacesSection(),
+                marketplacesSection(account.marketplaces),
                 aboutSection()
             ],
             stripeOnboardingURL: account.stripe.onboardingUrl,
@@ -69,14 +69,38 @@ enum AccountProfileBuilder {
         )
     }
 
-    private static func marketplacesSection() -> AccountSection {
-        AccountSection(
+    private static func marketplacesSection(_ links: [MarketplaceLink]) -> AccountSection {
+        var bySlug: [String: MarketplaceLink] = [:]
+        for link in links where bySlug[link.marketplace] == nil {
+            bySlug[link.marketplace] = link
+        }
+        return AccountSection(
             id: "marketplaces",
             title: "Marketplaces",
             rows: Marketplace.allCases.map { market in
-                AccountRow(id: market.rawValue, title: market.displayName, value: "Not connected")
-            }
+                AccountRow(
+                    id: market.rawValue,
+                    title: market.displayName,
+                    value: marketplaceValue(bySlug[market.rawValue])
+                )
+            },
+            note: "Salt connects these shops."
         )
+    }
+
+    private static func marketplaceValue(_ link: MarketplaceLink?) -> String {
+        guard let link else { return "Not connected" }
+        switch link.status {
+        case "connected":
+            let username = link.externalUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+            return username.isEmpty ? "Connected" : "Connected as \(username)"
+        case "needs_login":
+            return "Needs login"
+        case "failed":
+            return "Failed"
+        default:
+            return "Not connected"
+        }
     }
 
     private static func aboutSection() -> AccountSection {
