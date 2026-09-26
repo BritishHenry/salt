@@ -66,10 +66,10 @@ func testCatalog() throws {
         expectTrue(!item.brand.isEmpty, "brand \(item.id)")
         expectTrue(!item.size.isEmpty, "size \(item.id)")
         expectTrue(!item.condition.isEmpty, "condition \(item.id)")
-        expectTrue(item.pricePence > 0, "price \(item.id)")
+        expectTrue((item.pricePence ?? 0) > 0, "price \(item.id)")
         expectTrue(!item.listedOn.isEmpty, "listed \(item.id)")
-        if let offer = item.pendingOffer {
-            expectTrue(offer.pence > 0 && offer.pence < item.pricePence, "offer below asking \(item.id)")
+        if let offer = item.pendingOffer, let price = item.pricePence {
+            expectTrue(offer.pence > 0 && offer.pence < price, "offer below asking \(item.id)")
             expectTrue(item.listedOn.contains(offer.marketplace), "offer site listed \(item.id)")
         }
         let data = try JSONEncoder().encode(item)
@@ -355,7 +355,8 @@ func testTranscriptAndSources() throws {
     expectTrue(agent.error == nil, "agent error empty")
     expectEqual(agent.startedAt, started, "agent date")
 
-    expectEqual(MockWardrobeDataSource().loadItems().map(\.id), MockWardrobe.items.map(\.id), "wardrobe source")
+    let loaded = try awaitCatalog(MockWardrobeDataSource().loadItems)
+    expectEqual(loaded.map(\.id), MockWardrobe.items.map(\.id), "wardrobe source")
 
     let profile = MockAccountDataSource().loadProfile()
     expectEqual(profile.displayName, "Claire Bennett", "account name")
@@ -987,6 +988,260 @@ func itemDescription(_ items: [WardrobeItem], id: String) -> String {
     items.first { $0.id == id }?.listingDescription ?? ""
 }
 
+func awaitCatalog(_ operation: @escaping () async throws -> [WardrobeItem]) throws -> [WardrobeItem] {
+    final class Box: @unchecked Sendable {
+        var result: Result<[WardrobeItem], Error>?
+    }
+    let box = Box()
+    let semaphore = DispatchSemaphore(value: 0)
+    Task {
+        do {
+            box.result = .success(try await operation())
+        } catch {
+            box.result = .failure(error)
+        }
+        semaphore.signal()
+    }
+    semaphore.wait()
+    guard let result = box.result else {
+        throw AccountAPIError(message: "The wardrobe load did not finish.")
+    }
+    return try result.get()
+}
+
+final class QueueTransport: HTTPTransport, @unchecked Sendable {
+    var requests: [URLRequest] = []
+    var responses: [HTTPResponse]
+
+    init(_ responses: [HTTPResponse]) {
+        self.responses = responses
+    }
+
+    func send(_ request: URLRequest) throws -> HTTPResponse {
+        requests.append(request)
+        guard !responses.isEmpty else {
+            return HTTPResponse(statusCode: 500, data: Data("{\"error\":\"No scripted response.\"}".utf8))
+        }
+        return responses.removeFirst()
+    }
+}
+
+func wardrobeFixture() -> Data {
+    let json = """
+    {
+      "items": [
+        {
+          "id": 4,
+          "title": "Wool coat",
+          "brand": "COS",
+          "size_label": "M",
+          "condition": "very_good",
+          "category": "outerwear",
+          "price_minor": 7500,
+          "currency": "gbp",
+          "photos": [{"position": 0, "url": "https://cdn.example/coat.jpg"}],
+          "listings": [
+            {"marketplace": "vinted", "status": "draft"},
+            {"marketplace": "depop", "status": "live"},
+            {"marketplace": "etsy", "status": "live"}
+          ]
+        },
+        {
+          "id": 5,
+          "title": " ",
+          "brand": "",
+          "size_label": "",
+          "condition": "",
+          "category": "nope",
+          "price_minor": 1050,
+          "currency": "usd",
+          "photos": [],
+          "listings": []
+        },
+        {
+          "id": 6,
+          "title": "Linen shirt",
+          "brand": "Arket",
+          "size_label": "S",
+          "condition": "good",
+          "category": "tops",
+          "price_minor": null,
+          "currency": "gbp",
+          "photos": [],
+          "listings": []
+        }
+      ]
+    }
+    """
+    return Data(json.utf8)
+}
+
+func testWardrobeClient() throws {
+    expectEqual(MoneyFormat.amount(minor: 1050, currency: "usd"), "10.50 USD", "dollar amount")
+    expectEqual(MoneyFormat.amount(minor: 2800, currency: "GBP"), "£28", "pound amount")
+    expectEqual(MoneyParse.parse("28.50"), .amount(2850), "price with pence")
+    expectEqual(MoneyParse.parse("£1,250"), .amount(125000), "price with symbol")
+    expectEqual(MoneyParse.parse("  "), .empty, "blank price")
+    expectEqual(MoneyParse.parse("28.555"), .invalid, "too many decimals")
+    expectEqual(MoneyParse.text(fromMinor: 2850), "28.50", "price field")
+    expectEqual(MoneyParse.text(fromMinor: nil), "", "missing price field")
+
+    let base = URL(string: "http://127.0.0.1:8000")!
+    let transport = ScriptedTransport(response: HTTPResponse(statusCode: 200, data: wardrobeFixture()))
+    let items = try ListingExchange.listItems(transport: transport, baseURL: base, token: "tok_1")
+    expectEqual(items.map(\.id), ["4", "5", "6"], "decoded ids")
+    expectEqual(items[0].displayTitle, "Wool coat", "coat title")
+    expectEqual(items[0].size, "M", "coat size")
+    expectEqual(items[0].priceText, "£75", "coat price")
+    expectEqual(items[0].conditionText, "Very good", "coat condition")
+    expectEqual(items[0].kind, .outerwear, "coat kind")
+    expectEqual(items[0].listedOn, Set([Marketplace.depop]), "draft is not listed")
+    expectEqual(items[0].photoURL?.absoluteString, "https://cdn.example/coat.jpg", "coat photo")
+    expectEqual(items[0].listings.map(\.statusLabel), ["Draft", nil], "status labels")
+    expectEqual(items[1].displayTitle, "Untitled", "blank title")
+    expectEqual(items[1].kind, .other, "unknown category")
+    expectEqual(items[1].priceText, "10.50 USD", "dollar price")
+    expectEqual(items[2].priceText, "No price", "missing price")
+    expectEqual(WardrobeFilter.marketplace(.vinted).apply(to: items).count, 0, "vinted chip ignores drafts")
+    expectEqual(WardrobeFilter.marketplace(.depop).apply(to: items).map(\.id), ["4"], "depop chip")
+
+    let request = transport.requests[0]
+    expectEqual(request.httpMethod, "GET", "list method")
+    expectEqual(request.url?.absoluteString, "http://127.0.0.1:8000/api/listings/items/", "list url")
+    expectEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_1", "list auth")
+
+    let denied = ScriptedTransport(
+        response: HTTPResponse(statusCode: 401, data: Data("{\"error\":\"Authentication required.\"}".utf8))
+    )
+    do {
+        _ = try ListingExchange.listItems(transport: denied, baseURL: base, token: "tok_1")
+        expectTrue(false, "401 should throw")
+    } catch let error as AccountAPIError {
+        expectEqual(error.message, "Authentication required.", "401 message")
+        expectEqual(error.statusCode, 401, "401 status")
+    }
+
+    let malformed = ScriptedTransport(response: HTTPResponse(statusCode: 200, data: Data("not-json".utf8)))
+    do {
+        _ = try ListingExchange.listItems(transport: malformed, baseURL: base, token: "tok_1")
+        expectTrue(false, "malformed should throw")
+    } catch let error as AccountAPIError {
+        expectEqual(error.message, "Salt sent a response I couldn't read.", "malformed message")
+    }
+
+    let created = ScriptedTransport(response: HTTPResponse(statusCode: 201, data: Data("""
+    {"id": 9, "title": "Tee", "brand": "COS", "size_label": "S", "condition": "good", "category": "tops", "price_minor": 2800, "currency": "gbp", "photos": [], "listings": []}
+    """.utf8)))
+    let write = WardrobeItemWrite(
+        title: "Tee",
+        brand: "COS",
+        sizeLabel: "S",
+        condition: "good",
+        category: "tops",
+        priceMinor: 2800,
+        currency: "gbp"
+    )
+    let saved = try ListingExchange.saveItem(transport: created, baseURL: base, token: "tok_1", id: nil, write: write)
+    expectEqual(saved.id, "9", "created id")
+    expectEqual(created.requests[0].httpMethod, "POST", "create method")
+    expectEqual(created.requests[0].url?.absoluteString, "http://127.0.0.1:8000/api/listings/items/", "create url")
+    let body = try JSONSerialization.jsonObject(with: created.requests[0].httpBody ?? Data()) as? [String: Any]
+    expectEqual(body?["size_label"] as? String, "S", "create size")
+    expectEqual(body?["price_minor"] as? Int, 2800, "create price")
+    let cleared = try WardrobeItemWrite(
+        title: "Tee",
+        brand: "",
+        sizeLabel: "",
+        condition: "",
+        category: "",
+        priceMinor: nil,
+        currency: "gbp"
+    ).jsonData()
+    let clearedBody = try JSONSerialization.jsonObject(with: cleared) as? [String: Any]
+    expectTrue(clearedBody?["price_minor"] is NSNull, "clears price")
+
+    let conflict = QueueTransport([
+        HTTPResponse(statusCode: 409, data: Data("{\"error\":\"A listing for this marketplace already exists.\"}".utf8)),
+        HTTPResponse(statusCode: 200, data: Data("{\"marketplace\":\"vinted\",\"status\":\"live\"}".utf8))
+    ])
+    do {
+        try ListingExchange.createListing(
+            transport: conflict,
+            baseURL: base,
+            token: "tok_1",
+            itemID: "9",
+            marketplace: .vinted,
+            priceMinor: 2800,
+            currency: "gbp"
+        )
+        expectTrue(false, "409 should throw")
+    } catch let error as AccountAPIError {
+        expectEqual(error.statusCode, 409, "duplicate listing")
+    }
+    try ListingExchange.updateListing(
+        transport: conflict,
+        baseURL: base,
+        token: "tok_1",
+        itemID: "9",
+        marketplace: .vinted,
+        status: "live"
+    )
+    expectEqual(conflict.requests[1].httpMethod, "PATCH", "listing patch method")
+    expectEqual(
+        conflict.requests[1].url?.absoluteString,
+        "http://127.0.0.1:8000/api/listings/items/9/listings/vinted/",
+        "listing patch url"
+    )
+
+    let photo = ScriptedTransport(response: HTTPResponse(statusCode: 201, data: Data("{\"position\":0,\"url\":\"https://cdn.example/tee.jpg\"}".utf8)))
+    try ListingExchange.uploadPhoto(
+        transport: photo,
+        baseURL: base,
+        token: "tok_1",
+        itemID: "9",
+        filename: "photo.jpg",
+        data: Data("jpeg".utf8),
+        mimeType: "image/jpeg"
+    )
+    let photoRequest = photo.requests[0]
+    expectEqual(photoRequest.httpMethod, "POST", "photo method")
+    expectEqual(photoRequest.url?.absoluteString, "http://127.0.0.1:8000/api/listings/items/9/photos/", "photo url")
+    expectTrue(photoRequest.value(forHTTPHeaderField: "Content-Type")?.contains("multipart/form-data") == true, "photo content type")
+    let photoBody = photoRequest.httpBody ?? Data()
+    expectTrue(photoBody.range(of: Data("jpeg".utf8)) != nil, "photo bytes")
+
+    let draft = WardrobeListing(marketplace: .vinted, status: "draft")
+    let live = WardrobeListing(marketplace: .depop, status: "live")
+    expectEqual(
+        WardrobeSavePlan.channelSteps(existing: [draft, live], desiredLive: [.vinted]),
+        [.makeLive(.vinted, creating: false), .pause(.depop)],
+        "channel steps"
+    )
+    expectEqual(
+        WardrobeSavePlan.channelSteps(existing: [], desiredLive: [.ebay]),
+        [.makeLive(.ebay, creating: true)],
+        "create channel"
+    )
+
+    var state = WardrobeLoadState()
+    state.succeeded([sampleItem()])
+    let stale = state
+    WardrobeReload.apply(state: &state, result: .success([sampleItem(id: "next")]), generation: 1, current: 2)
+    expectEqual(state, stale, "stale reload is ignored")
+    WardrobeReload.apply(
+        state: &state,
+        result: .failure(AccountAPIError(message: "Salt couldn't reach the server.")),
+        generation: 2,
+        current: 2
+    )
+    expectEqual(state.items.map(\.id), ["sample"], "failed reload keeps items")
+    expectEqual(state.failure, "Salt couldn't reach the server.", "failed reload message")
+    expectTrue(!state.isLoading, "failed reload stops loading")
+    WardrobeReload.apply(state: &state, result: .success([sampleItem(id: "fresh")]), generation: 3, current: 3)
+    expectEqual(state.items.map(\.id), ["fresh"], "reload replaces items")
+    expectTrue(state.failure == nil, "reload clears the error")
+}
+
 do {
     testMoney()
     try testCatalog()
@@ -997,6 +1252,7 @@ do {
     testServerSentEvents()
     try testSignup()
     try testSaltChatExchange()
+    try testWardrobeClient()
 } catch {
     fputs("FAIL \(error)\n", stderr)
     exit(1)

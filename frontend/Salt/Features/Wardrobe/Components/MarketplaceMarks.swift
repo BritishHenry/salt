@@ -1,25 +1,25 @@
 import SwiftUI
 
 struct MarketplaceMarks: View {
-    let listedOn: Set<Marketplace>
+    let listings: [WardrobeListing]
 
     var body: some View {
         WrappingHStack(horizontalSpacing: 6, verticalSpacing: 6) {
             ForEach(Marketplace.allCases) { marketplace in
-                mark(for: marketplace, listed: listedOn.contains(marketplace))
+                mark(for: marketplace, listing: listings.first { $0.marketplace == marketplace })
             }
         }
         .accessibilityHidden(true)
     }
 
-    private func mark(for marketplace: Marketplace, listed: Bool) -> some View {
-        let style = MarkStyle.resolve(marketplace: marketplace, listed: listed)
+    private func mark(for marketplace: Marketplace, listing: WardrobeListing?) -> some View {
+        let style = MarkStyle.resolve(marketplace: marketplace, listed: listing?.isLive == true)
         return HStack(spacing: 4) {
-            if listed {
+            if listing?.isLive == true {
                 Image(systemName: "checkmark")
                     .font(.system(size: 9, weight: .bold))
             }
-            Text(marketplace.displayName)
+            Text(label(for: marketplace, listing: listing))
                 .font(SaltFont.caption.weight(.semibold))
         }
         .foregroundStyle(style.foreground)
@@ -27,6 +27,13 @@ struct MarketplaceMarks: View {
         .padding(.vertical, 5)
         .background(style.fill, in: Capsule())
         .overlay(Capsule().stroke(style.stroke, lineWidth: 1))
+    }
+
+    private func label(for marketplace: Marketplace, listing: WardrobeListing?) -> String {
+        guard let listing, !listing.isLive, let status = listing.statusLabel else {
+            return marketplace.displayName
+        }
+        return "\(marketplace.displayName) \(status)"
     }
 }
 
