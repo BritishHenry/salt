@@ -15,7 +15,7 @@ struct TypingIndicator: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 14)
-                .background(SaltColor.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(SaltColor.primarySoft, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(SaltColor.hairline, lineWidth: 1)

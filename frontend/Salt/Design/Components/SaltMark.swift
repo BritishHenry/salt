@@ -12,7 +12,7 @@ struct SaltMark: View {
             .offset(y: -size * 0.28)
 
             Circle()
-                .fill(SaltColor.lilac)
+                .fill(SaltColor.primary)
                 .frame(width: size * 0.72, height: size * 0.72)
                 .offset(y: size * 0.08)
 
@@ -23,7 +23,7 @@ struct SaltMark: View {
             .offset(y: size * 0.06)
 
             Circle()
-                .fill(SaltColor.green)
+                .fill(SaltColor.white)
                 .frame(width: size * 0.1, height: size * 0.1)
                 .offset(y: size * 0.18)
         }
@@ -39,7 +39,7 @@ struct SaltMark: View {
 
     private var eye: some View {
         Circle()
-            .fill(SaltColor.cocoa)
+            .fill(SaltColor.white)
             .frame(width: max(size * 0.08, 2), height: max(size * 0.08, 2))
     }
 }

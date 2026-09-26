@@ -8,8 +8,8 @@ enum SaltAppearance {
         tab.shadowColor = SaltColor.cocoaUI.withAlphaComponent(0.12)
 
         let item = UITabBarItemAppearance()
-        let normalColor = SaltColor.cocoaUI.withAlphaComponent(0.72)
-        let selectedColor = SaltColor.cocoaUI
+        let normalColor = SaltColor.cocoaUI.withAlphaComponent(0.55)
+        let selectedColor = SaltColor.greenUI
         let normalFont = roundedFont(size: 10, weight: .medium)
         let selectedFont = roundedFont(size: 10, weight: .semibold)
 
@@ -35,9 +35,9 @@ enum SaltAppearance {
 
         let navigation = UINavigationBarAppearance()
         navigation.configureWithOpaqueBackground()
-        navigation.backgroundColor = SaltColor.peachUI
-        navigation.shadowColor = .clear
-        navigation.titleTextAttributes = [.foregroundColor: selectedColor]
+        navigation.backgroundColor = SaltColor.whiteUI
+        navigation.shadowColor = SaltColor.greenUI.withAlphaComponent(0.12)
+        navigation.titleTextAttributes = [.foregroundColor: SaltColor.cocoaUI]
         let navigationBar = UINavigationBar.appearance()
         navigationBar.standardAppearance = navigation
         navigationBar.scrollEdgeAppearance = navigation

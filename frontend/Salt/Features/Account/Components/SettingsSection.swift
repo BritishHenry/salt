@@ -51,11 +51,13 @@ struct SettingsSection: View {
 
     private func badge(for row: AccountRow) -> some View {
         ZStack {
-            Circle().fill(badgeColor(for: row.id))
+            Circle()
+                .fill(badgeColor(for: row.id))
+                .overlay(Circle().stroke(SaltColor.hairline, lineWidth: 1))
             if let marketplace = Marketplace(rawValue: row.id) {
                 Text(marketplace.monogram)
                     .font(SaltFont.caption.weight(.bold))
-                    .foregroundStyle(SaltColor.cocoa)
+                    .foregroundStyle(marketplace == .vinted ? SaltColor.onPrimary : SaltColor.ink)
             } else {
                 Image(systemName: symbolName(for: row.id))
                     .font(.system(size: 14, weight: .semibold))
@@ -69,13 +71,13 @@ struct SettingsSection: View {
     private func badgeColor(for rowID: String) -> Color {
         switch Marketplace(rawValue: rowID) {
         case .vinted:
-            return SaltColor.green.opacity(0.35)
+            return SaltColor.primary
         case .depop:
-            return SaltColor.lilac.opacity(0.45)
+            return SaltColor.primarySoft
         case .ebay:
-            return SaltColor.peach
+            return SaltColor.white
         case nil:
-            return SaltColor.peach
+            return SaltColor.primarySoft
         }
     }
 

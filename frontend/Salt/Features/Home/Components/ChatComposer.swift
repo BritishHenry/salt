@@ -25,9 +25,9 @@ struct ChatComposer: View {
             Button(action: onSend) {
                 Image(systemName: "arrow.up")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(SaltColor.cocoa)
+                    .foregroundStyle(canSend ? SaltColor.onPrimary : SaltColor.inkMuted)
                     .frame(width: 44, height: 44)
-                    .background(canSend ? SaltColor.green : SaltColor.surface, in: Circle())
+                    .background(canSend ? SaltColor.primary : SaltColor.surface, in: Circle())
                     .overlay(
                         Circle().stroke(canSend ? Color.clear : SaltColor.hairline, lineWidth: 1)
                     )

@@ -30,8 +30,7 @@ extension UIColor {
     }
 }
 
-/// Brand colours from the product palette. Green, peach, and lilac are fills.
-/// Cocoa is the ink, so text stays readable on those fills.
+/// Brand palette from the README. Green and white are primary; peach and lilac are accents.
 enum SaltColor {
     static let green = Color(saltHex: 0x08CB00)
     static let white = Color(saltHex: 0xFFFFFF)
@@ -39,9 +38,14 @@ enum SaltColor {
     static let cocoa = Color(saltHex: 0x362C28)
     static let lilac = Color(saltHex: 0x9D75CB)
 
-    static let background = peach
+    static let primary = green
+    static let onPrimary = white
+    static let background = white
     static let surface = white
-    static var hairline: Color { cocoa.opacity(0.12) }
+    static var hairline: Color { green.opacity(0.18) }
+    static var ink: Color { cocoa }
+    static var inkMuted: Color { cocoa.opacity(0.72) }
+    static var primarySoft: Color { green.opacity(0.12) }
 
     static let greenUI = UIColor(saltHex: 0x08CB00)
     static let whiteUI = UIColor(saltHex: 0xFFFFFF)

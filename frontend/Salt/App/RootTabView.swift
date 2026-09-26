@@ -39,7 +39,7 @@ struct RootTabView: View {
                 }
                 .tag(AppTab.account)
         }
-        .tint(SaltColor.cocoa)
+        .tint(SaltColor.primary)
         .preferredColorScheme(.light)
     }
 }

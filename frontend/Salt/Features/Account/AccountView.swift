@@ -43,8 +43,8 @@ private struct AccountProfileHeader: View {
     var body: some View {
         VStack(spacing: 8) {
             ZStack {
-                Circle().fill(SaltColor.lilac)
-                Circle().fill(SaltColor.peach).padding(5)
+                Circle().fill(SaltColor.primary)
+                Circle().fill(SaltColor.white).padding(5)
                 Text(initials)
                     .font(SaltFont.title)
                     .foregroundStyle(SaltColor.cocoa)

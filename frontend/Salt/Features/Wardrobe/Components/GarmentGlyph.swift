@@ -7,6 +7,10 @@ struct GarmentGlyph: View {
         ZStack {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(tile)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(SaltColor.hairline, lineWidth: 1)
+                )
             Image(systemName: symbolName)
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(SaltColor.cocoa)
@@ -29,11 +33,11 @@ struct GarmentGlyph: View {
     private var tile: Color {
         switch kind {
         case .top, .dress:
-            return SaltColor.peach
+            return SaltColor.primarySoft
         case .bottom, .shoes:
-            return SaltColor.lilac.opacity(0.45)
+            return SaltColor.white
         case .outerwear, .bag:
-            return SaltColor.green.opacity(0.35)
+            return SaltColor.primary.opacity(0.22)
         }
     }
 }

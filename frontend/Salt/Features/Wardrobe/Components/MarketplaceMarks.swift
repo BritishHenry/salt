@@ -46,21 +46,21 @@ private struct MarkStyle {
         switch marketplace {
         case .vinted:
             return MarkStyle(
-                fill: SaltColor.green.opacity(0.35),
-                stroke: SaltColor.green,
-                foreground: SaltColor.cocoa
+                fill: SaltColor.primary,
+                stroke: SaltColor.primary,
+                foreground: SaltColor.onPrimary
             )
         case .depop:
             return MarkStyle(
-                fill: SaltColor.lilac.opacity(0.4),
-                stroke: SaltColor.lilac,
-                foreground: SaltColor.cocoa
+                fill: SaltColor.primarySoft,
+                stroke: SaltColor.primary,
+                foreground: SaltColor.ink
             )
         case .ebay:
             return MarkStyle(
-                fill: SaltColor.peach,
-                stroke: SaltColor.cocoa.opacity(0.28),
-                foreground: SaltColor.cocoa
+                fill: SaltColor.white,
+                stroke: SaltColor.primary,
+                foreground: SaltColor.ink
             )
         }
     }

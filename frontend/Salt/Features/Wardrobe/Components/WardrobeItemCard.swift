@@ -30,7 +30,7 @@ struct WardrobeItemCard: View {
                         .foregroundStyle(SaltColor.cocoa)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(SaltColor.lilac.opacity(0.35), in: Capsule())
+                        .background(SaltColor.primarySoft, in: Capsule())
                 }
             }
         }
