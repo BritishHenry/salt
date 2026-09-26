@@ -1,7 +1,7 @@
 import Foundation
 
-/// Read seams for the three tabs. Chat and wardrobe still use the mock types.
-/// A signed-in account loads its profile from `SignedInAccountDataSource`.
+/// Read seams for the three tabs. Wardrobe still uses the mock type.
+/// Signed-in chat streams from Salt. A signed-in account loads its profile from `SignedInAccountDataSource`.
 protocol ChatDataSource {
     var agentName: String { get }
     var suggestions: [String] { get }

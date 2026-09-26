@@ -27,7 +27,7 @@ struct HomeView: View {
                         ChatBubble(message: message)
                             .id(message.id)
                     }
-                    if viewModel.isReplying {
+                    if viewModel.showsTypingIndicator {
                         TypingIndicator()
                             .id(Self.typingID)
                     }
@@ -40,7 +40,10 @@ struct HomeView: View {
             .onChange(of: viewModel.messages.count) { _ in
                 scrollToEnd(with: proxy, animated: true)
             }
-            .onChange(of: viewModel.isReplying) { _ in
+            .onChange(of: viewModel.messages.last?.text) { _ in
+                scrollToEnd(with: proxy, animated: true)
+            }
+            .onChange(of: viewModel.showsTypingIndicator) { _ in
                 scrollToEnd(with: proxy, animated: true)
             }
         }
@@ -81,7 +84,7 @@ struct HomeView: View {
     }
 
     private func scrollToEnd(with proxy: ScrollViewProxy, animated: Bool) {
-        let target = viewModel.isReplying ? Self.typingID : viewModel.messages.last?.id
+        let target = viewModel.showsTypingIndicator ? Self.typingID : viewModel.messages.last?.id
         guard let target else { return }
         if animated {
             withAnimation(.easeOut(duration: 0.2)) {

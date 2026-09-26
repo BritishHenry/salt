@@ -63,6 +63,8 @@
 		00000000B10000000000007A /* SessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000079 /* SessionController.swift */; };
 		00000000B10000000000007C /* AppGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000007B /* AppGate.swift */; };
 		00000000B10000000000007E /* SignupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000007D /* SignupView.swift */; };
+		00000000B100000000000081 /* SaltChatExchange.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000080 /* SaltChatExchange.swift */; };
+		00000000B100000000000083 /* LiveChatDataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000082 /* LiveChatDataSource.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -123,6 +125,8 @@
 		00000000B100000000000079 /* SessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionController.swift; sourceTree = "<group>"; };
 		00000000B10000000000007B /* AppGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGate.swift; sourceTree = "<group>"; };
 		00000000B10000000000007D /* SignupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignupView.swift; sourceTree = "<group>"; };
+		00000000B100000000000080 /* SaltChatExchange.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltChatExchange.swift; sourceTree = "<group>"; };
+		00000000B100000000000082 /* LiveChatDataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveChatDataSource.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -167,6 +171,7 @@
 				00000000B100000000000077 /* SaltAPI.swift */,
 				00000000B100000000000007 /* SaltAppearance.swift */,
 				00000000B100000000000079 /* SessionController.swift */,
+				00000000B100000000000082 /* LiveChatDataSource.swift */,
 				00000000B100000000000075 /* URLSessionHTTPTransport.swift */,
 			);
 			path = App;
@@ -188,6 +193,7 @@
 			children = (
 				00000000B10000000000006F /* AccountClient.swift */,
 				00000000B100000000000009 /* DataSources.swift */,
+				00000000B100000000000080 /* SaltChatExchange.swift */,
 				00000000B100000000000071 /* SessionStore.swift */,
 				00000000B100000000000073 /* SignedInAccountDataSource.swift */,
 			);
@@ -460,6 +466,8 @@
 				00000000B10000000000006C /* SignupForm.swift in Sources */,
 				00000000B10000000000006E /* AccountProfileBuilder.swift in Sources */,
 				00000000B100000000000070 /* AccountClient.swift in Sources */,
+				00000000B100000000000081 /* SaltChatExchange.swift in Sources */,
+				00000000B100000000000083 /* LiveChatDataSource.swift in Sources */,
 				00000000B100000000000072 /* SessionStore.swift in Sources */,
 				00000000B100000000000074 /* SignedInAccountDataSource.swift in Sources */,
 				00000000B100000000000076 /* URLSessionHTTPTransport.swift in Sources */,
