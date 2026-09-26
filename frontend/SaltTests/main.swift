@@ -717,6 +717,111 @@ func messageDeltas(in events: [ChatStreamEvent]) -> [String] {
     }
 }
 
+func testSaltChatExchange() throws {
+    let welcome = ChatTurn.agent(
+        AgentTurn(
+            id: "local:welcome",
+            thinking: "",
+            message: "Hello, I'm Salt.",
+            phase: .complete,
+            error: nil,
+            startedAt: Date(timeIntervalSince1970: 1)
+        )
+    )
+    let asked = ChatTurn.user(
+        ChatMessage(
+            id: "u1",
+            author: .user,
+            text: "What is listed?",
+            sentAt: Date(timeIntervalSince1970: 2)
+        )
+    )
+    let answered = ChatTurn.agent(
+        AgentTurn(
+            id: "a1",
+            thinking: "",
+            message: "The coat is on Vinted.",
+            phase: .complete,
+            error: nil,
+            startedAt: Date(timeIntervalSince1970: 3)
+        )
+    )
+    let blank = ChatTurn.user(
+        ChatMessage(id: "blank", author: .user, text: "  ", sentAt: Date())
+    )
+    expectEqual(
+        SaltChatExchange.wireMessages(from: [welcome, asked, answered, blank]),
+        [
+            SaltChatWireMessage(role: "user", content: "What is listed?"),
+            SaltChatWireMessage(role: "assistant", content: "The coat is on Vinted.")
+        ],
+        "wire messages skip the local welcome"
+    )
+
+    let request = try SaltChatExchange.request(
+        baseURL: SaltAPIConfiguration.defaultBaseURL,
+        token: "tok_1",
+        transcript: [welcome, asked]
+    )
+    expectEqual(request.httpMethod ?? "", "POST", "chat method")
+    expectEqual(request.url?.absoluteString, "http://127.0.0.1:8000/api/agents/salt/chat/", "chat path")
+    expectEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_1", "chat auth")
+    expectEqual(request.value(forHTTPHeaderField: "Accept"), "text/event-stream", "chat accept")
+    let body = try JSONDecoder().decode(ChatRequestFixture.self, from: request.httpBody ?? Data())
+    expectEqual(body.messages, [SaltChatWireMessage(role: "user", content: "What is listed?")], "chat body")
+
+    var parser = SaltChatSSEParser()
+    let first = parser.append("event: thinking\ndata: {\"delta\":\"Looking.\"}\n")
+    expectEqual(first, [], "parser waits for a blank line")
+    let streamed = parser.append("\nevent: message\ndata: {\"delta\":\"Your coat \"}\n\n")
+    expectEqual(
+        streamed,
+        [.thinking("Looking."), .message("Your coat ")],
+        "parser reads complete events"
+    )
+    let rest = parser.append("event: message\ndata: {\"delta\":\"is on Vinted.\"}\n\nevent: done\ndata: {\"thinking\":\"Looking.\",\"message\":\"Your coat is on Vinted.\"}\n\n")
+    expectEqual(
+        rest,
+        [
+            .message("is on Vinted."),
+            .done(thinking: "Looking.", message: "Your coat is on Vinted.")
+        ],
+        "parser reads the rest of the stream"
+    )
+
+    var split = SaltChatSSEParser()
+    _ = split.append("event: error\ndata: {\"error\":\"The Grok API ")
+    let failed = split.append("could not be reached.\"}\n\n")
+    expectEqual(failed, [.failure("The Grok API could not be reached.")], "parser joins a split data line")
+
+    var draft = SaltChatDraft()
+    draft.apply(.thinking("Looking."))
+    draft.apply(.message("Your coat "))
+    draft.apply(.done(thinking: "Looking.", message: "Your coat is on Vinted."))
+    expectEqual(draft.thinking, "Looking.", "done replaces thinking")
+    expectEqual(draft.message, "Your coat is on Vinted.", "done replaces the reply")
+    draft.apply(.failure("The Grok API could not be reached."))
+    expectEqual(
+        draft.message,
+        "Your coat is on Vinted.\n\nThe Grok API could not be reached.",
+        "failure is appended"
+    )
+
+    var empty = SaltChatDraft()
+    empty.apply(.failure("  "))
+    expectEqual(empty.message, "Salt couldn't finish that. Try again.", "blank failure")
+
+    let denied = SaltChatExchange.message(
+        forHTTPError: 401,
+        body: Data("{\"error\":\"Authentication required.\"}".utf8)
+    )
+    expectEqual(denied, "Authentication required.", "http error message")
+}
+
+private struct ChatRequestFixture: Decodable {
+    var messages: [SaltChatWireMessage]
+}
+
 func itemDescription(_ items: [WardrobeItem], id: String) -> String {
     items.first { $0.id == id }?.listingDescription ?? ""
 }
@@ -730,6 +835,7 @@ do {
     testAgentTurnReducer()
     testServerSentEvents()
     try testSignup()
+    try testSaltChatExchange()
 } catch {
     fputs("FAIL \(error)\n", stderr)
     exit(1)
