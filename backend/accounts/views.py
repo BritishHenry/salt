@@ -8,6 +8,7 @@ from accounts.services import (
     AccountError,
     account_payload,
     log_in,
+    marketplace_connections_payload,
     parse_body,
     provision,
     register,
@@ -70,6 +71,15 @@ def me(request):
     if error is not None:
         return error
     return JsonResponse(account_payload(user))
+
+
+@csrf_exempt
+@require_GET
+def marketplaces(request):
+    user, error = _authenticated(request)
+    if error is not None:
+        return error
+    return JsonResponse(marketplace_connections_payload(user))
 
 
 @csrf_exempt
