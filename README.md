@@ -40,8 +40,6 @@ The stack I should rely on (from the hackathon):
 
 I personally don't use much ecommerce, but my mum is building a 'vinted empire', so I want to build an app which can help you run and manage a 'vinted empire'. 
 
-
-
 The key details are:
 
 - Enables easy selling across second hand clothes platforms
@@ -49,6 +47,8 @@ The key details are:
 - Gives full financial reports so they can run it like a small business
 
 
+
+Note: 'Salt' is the name of my mum's cat, hence the name. The user-facing agents will all be named after my mum's cats.
 
 ### The tech stack
 
@@ -63,9 +63,7 @@ Use GrokBots to handle:
 
 Stripe to get paid.
 
-
-
-### The design 
+### The design
 
 My mum loves cats, so we'll use some cat branding and some bold colours. It's important that this feels fun and super super easy to use. 
 
@@ -77,9 +75,5 @@ Initial colour pallette:
 - #362C28
 - #9D75CB
 
-
-
 ---
-
-
 
