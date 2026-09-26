@@ -234,6 +234,13 @@ class BrowserUseClient:
             )
         except BrowserUseTimeout:
             raise
+        except Exception as exc:
+            if getattr(exc, "run_id", None) is None:
+                exc.run_id = created.id
+            if getattr(exc, "session_id", None) is None:
+                exc.session_id = created.session_id
+            self.release(created.session_id)
+            raise
         self.release(created.session_id)
         return self._raise_for_run(finished, True)
 
