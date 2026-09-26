@@ -26,7 +26,18 @@ from services.browser_use.errors import (
     QueueFull,
     SessionBusy,
 )
-from services.browser_use.models import MODELS, Assignment, CloudBrowser, QueuedMessage, Run, RunEvent, Session
+from services.browser_use.models import (
+    MODELS,
+    Assignment,
+    CloudBrowser,
+    Profile,
+    ProfilePage,
+    QueuedMessage,
+    Run,
+    RunEvent,
+    Secret,
+    Session,
+)
 
 __all__ = [
     "MODELS",
@@ -41,10 +52,13 @@ __all__ = [
     "CloudBrowser",
     "Conversation",
     "MessageNotDispatched",
+    "Profile",
+    "ProfilePage",
     "QueueFull",
     "QueuedMessage",
     "Run",
     "RunEvent",
+    "Secret",
     "Session",
     "SessionBusy",
 ]

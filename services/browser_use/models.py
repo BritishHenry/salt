@@ -227,3 +227,94 @@ class Assignment:
     session_id: str
     run: Run | None = None
     message: QueuedMessage | None = None
+
+
+@dataclass(frozen=True)
+class Profile:
+    """Saved browser state for one user: cookies and local storage, not passwords."""
+
+    id: str
+    created_at: str
+    updated_at: str
+    user_id: str | None = None
+    name: str | None = None
+    last_used_at: str | None = None
+    cookie_domains: tuple[str, ...] = ()
+
+    @classmethod
+    def from_api(cls, payload):
+        return cls(
+            id=payload["id"],
+            created_at=payload["createdAt"],
+            updated_at=payload["updatedAt"],
+            user_id=payload.get("userId"),
+            name=payload.get("name"),
+            last_used_at=payload.get("lastUsedAt"),
+            cookie_domains=_tuple(payload.get("cookieDomains")),
+        )
+
+
+@dataclass(frozen=True)
+class ProfilePage:
+    """One page from GET /profiles."""
+
+    items: tuple[Profile, ...]
+    total_items: int
+    page_number: int
+    page_size: int
+
+    @classmethod
+    def from_api(cls, payload):
+        return cls(
+            items=tuple(Profile.from_api(item) for item in payload.get("items", ())),
+            total_items=payload["totalItems"],
+            page_number=payload["pageNumber"],
+            page_size=payload["pageSize"],
+        )
+
+
+def _bare_host(domain):
+    if not isinstance(domain, str):
+        raise ValueError("allowed domain must be a bare hostname")
+    host = domain.strip().lower()
+    if (
+        not host
+        or "://" in host
+        or any(mark in host for mark in ("/", ":", "*", " ", "?", "#"))
+    ):
+        raise ValueError("allowed domain must be a bare hostname")
+    return host
+
+
+@dataclass(frozen=True)
+class Secret:
+    """A password the server may type into a login form. The agent cannot read it.
+
+    The binding lasts for one run. Cookies written during that run stay on the
+    profile after the browser stops; the password does not.
+    """
+
+    alias: str
+    value: str
+    allowed_domains: tuple[str, ...]
+
+    def __repr__(self):
+        return f"Secret(alias={self.alias!r}, allowed_domains={self.allowed_domains!r})"
+
+    @classmethod
+    def inline(cls, alias, value, allowed_domains):
+        if not isinstance(alias, str) or not alias.strip():
+            raise ValueError("secret alias must be a non-empty string")
+        if not isinstance(value, str) or not value:
+            raise ValueError("secret value must be a non-empty string")
+        domains = tuple(_bare_host(domain) for domain in allowed_domains)
+        if not domains:
+            raise ValueError("secret requires at least one allowed domain")
+        return cls(alias=alias.strip(), value=value, allowed_domains=domains)
+
+    def to_api(self):
+        return {
+            "alias": self.alias,
+            "source": {"type": "inline", "value": self.value},
+            "allowedDomains": list(self.allowed_domains),
+        }

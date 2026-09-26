@@ -25,10 +25,15 @@ from services.browser_use.models import (
     Assignment,
     CloudBrowser,
     EventPage,
+    Profile,
+    ProfilePage,
     QueuedMessage,
     Run,
+    Secret,
     Session,
 )
+
+_MAX_SECRET_BINDINGS = 10
 from services.browser_use.transport import DEFAULT_BASE_URL, UrllibTransport
 
 
@@ -87,6 +92,7 @@ class BrowserUseClient:
         proxy_country_code=UNSET,
         record=None,
         attached_file_ids=None,
+        secret_bindings=None,
     ):
         """Start a browser agent on ``task``.
 
@@ -95,6 +101,11 @@ class BrowserUseClient:
         :class:`SessionBusy`; use :meth:`send` to queue the next instruction.
         ``proxy_country_code=None`` disables the proxy. Leave it unset to
         accept the API default.
+
+        ``secret_bindings`` are passwords the server may type during this run.
+        They are not stored on the profile and cannot be queued onto a busy
+        session. Sign in with :meth:`run` so the browser stops and its cookies
+        stay on ``profile_id``.
         """
         if not isinstance(task, str) or not task.strip():
             raise ValueError("task must be a non-empty string")
@@ -114,6 +125,7 @@ class BrowserUseClient:
             "maxCostUsd": max_cost_usd,
             "modelParams": model_params,
             "attachedFileIds": attached_file_ids,
+            "secretBindings": _secret_bindings_body(secret_bindings),
         }
         for key, value in optional.items():
             if value is not None:
@@ -130,8 +142,12 @@ class BrowserUseClient:
         another run. A busy session queues the text, and ``interrupt=True``
         asks the active run to stop so this instruction can start now.
         Options such as ``model`` apply only when a new run is created.
+        ``secret_bindings`` cannot be queued; a busy session raises
+        ``ValueError`` instead of sending the password as message text.
         """
         attached_file_ids = run_options.get("attached_file_ids")
+        if run_options.get("secret_bindings") and session_id and interrupt:
+            raise ValueError("secret_bindings cannot be queued; start a new run")
         if session_id and interrupt:
             message = self.send(
                 session_id,
@@ -145,6 +161,8 @@ class BrowserUseClient:
         except SessionBusy:
             if not session_id:
                 raise
+            if run_options.get("secret_bindings"):
+                raise ValueError("secret_bindings cannot be queued; start a new run") from None
             message = self.send(session_id, task, attached_file_ids=attached_file_ids)
             return Assignment(session_id=session_id, message=message)
         return Assignment(session_id=run.session_id, run=run)
@@ -356,6 +374,41 @@ class BrowserUseClient:
                 BrowserUseTimeout(session_id=session_id, message_id=message_id),
             )
 
+    def create_profile(self, name=None, user_id=None):
+        """Create an empty browser profile and return it.
+
+        Pass ``user_id`` so the profile can be found later with
+        :meth:`list_profiles`. The profile has no logins until a run that
+        loads it signs in and the browser is stopped.
+        """
+        body = {}
+        name = None if name is None else _profile_label(name, "name", 100)
+        user_id = None if user_id is None else _profile_label(user_id, "user_id", 255)
+        if name is not None:
+            body["name"] = name
+        if user_id is not None:
+            body["userId"] = user_id
+        payload = self._transport.request("POST", "/profiles", json_body=body)
+        return Profile.from_api(payload)
+
+    def get_profile(self, profile_id):
+        """Return a profile, including the domains it has cookies for."""
+        payload = self._transport.request("GET", f"/profiles/{quote(profile_id)}")
+        return Profile.from_api(payload)
+
+    def list_profiles(self, query=None, page_size=None, page_number=None):
+        """List profiles. ``query`` matches a profile name or ``user_id``."""
+        payload = self._transport.request(
+            "GET",
+            "/profiles",
+            query={
+                "query": query,
+                "pageSize": page_size,
+                "pageNumber": page_number,
+            },
+        )
+        return ProfilePage.from_api(payload)
+
     def list_browsers(self, *, agent_session_id=None, status=None):
         payload = self._transport.request(
             "GET",
@@ -416,3 +469,28 @@ class BrowserUseClient:
         if run.status == "cancelled":
             raise BrowserUseRunCancelled(run)
         return run
+
+
+def _profile_label(value, field, limit):
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    label = value.strip()
+    if not label:
+        return None
+    if len(label) > limit:
+        raise ValueError(f"{field} must be at most {limit} characters")
+    return label
+
+
+def _secret_bindings_body(bindings):
+    if not bindings:
+        return None
+    bindings = tuple(bindings)
+    if len(bindings) > _MAX_SECRET_BINDINGS:
+        raise ValueError("secret_bindings accepts at most 10 secrets")
+    encoded = []
+    for binding in bindings:
+        if not isinstance(binding, Secret):
+            raise ValueError("secret_bindings entries must be Secret values")
+        encoded.append(binding.to_api())
+    return encoded

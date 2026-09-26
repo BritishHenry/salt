@@ -397,6 +397,142 @@ class TransportTests(unittest.TestCase):
         self.assertIn("Insufficient credits", str(caught.exception))
 
 
+PROFILE_ID = "55555555-5555-5555-5555-555555555555"
+
+
+def profile_payload(**extra):
+    payload = {
+        "id": PROFILE_ID,
+        "userId": "user-1",
+        "name": "Ada",
+        "lastUsedAt": None,
+        "createdAt": "2026-09-26T00:00:00Z",
+        "updatedAt": "2026-09-26T00:00:00Z",
+        "cookieDomains": ["vinted.co.uk"],
+    }
+    payload.update(extra)
+    return payload
+
+
+class ProfileTests(unittest.TestCase):
+    def test_creates_a_profile_with_the_caller_user_id(self):
+        browser, transport, _clock = client([profile_payload()])
+        profile = browser.create_profile(name="Ada", user_id="user-1")
+        self.assertEqual(
+            transport.calls[0],
+            {
+                "method": "POST",
+                "path": "/profiles",
+                "json": {"name": "Ada", "userId": "user-1"},
+                "query": None,
+            },
+        )
+        self.assertEqual(profile.id, PROFILE_ID)
+        self.assertEqual(profile.cookie_domains, ("vinted.co.uk",))
+
+    def test_create_omits_blank_fields(self):
+        browser, transport, _clock = client([profile_payload(name=None, userId=None, cookieDomains=None)])
+        profile = browser.create_profile(name="  ")
+        self.assertEqual(transport.calls[0]["json"], {})
+        self.assertEqual(profile.cookie_domains, ())
+
+    def test_gets_a_profile(self):
+        browser, transport, _clock = client([profile_payload()])
+        profile = browser.get_profile(PROFILE_ID)
+        self.assertEqual(transport.calls[0]["method"], "GET")
+        self.assertEqual(transport.calls[0]["path"], f"/profiles/{PROFILE_ID}")
+        self.assertEqual(profile.user_id, "user-1")
+
+    def test_lists_profiles_for_a_user(self):
+        browser, transport, _clock = client(
+            [
+                {
+                    "items": [profile_payload()],
+                    "totalItems": 11,
+                    "pageNumber": 2,
+                    "pageSize": 10,
+                }
+            ]
+        )
+        page = browser.list_profiles(query="user-1", page_size=10, page_number=2)
+        self.assertEqual(
+            transport.calls[0]["query"],
+            {"query": "user-1", "pageSize": 10, "pageNumber": 2},
+        )
+        self.assertEqual(page.total_items, 11)
+        self.assertEqual(page.items[0].id, PROFILE_ID)
+
+
+class SecretBindingTests(unittest.TestCase):
+    def test_run_includes_secret_bindings_when_passed(self):
+        from services.browser_use import Secret
+
+        browser, transport, _clock = client([created_run()])
+        browser.create_run(
+            "Log in to Vinted",
+            profile_id=PROFILE_ID,
+            secret_bindings=[Secret.inline("vinted_password", "s3cret", ["Vinted.co.uk"])],
+        )
+        self.assertEqual(
+            transport.calls[0]["json"],
+            {
+                "task": "Log in to Vinted",
+                "browserSettings": {"profileId": PROFILE_ID},
+                "secretBindings": [
+                    {
+                        "alias": "vinted_password",
+                        "source": {"type": "inline", "value": "s3cret"},
+                        "allowedDomains": ["vinted.co.uk"],
+                    }
+                ],
+            },
+        )
+
+    def test_invalid_secret_fails_before_a_request(self):
+        from services.browser_use import Secret
+
+        browser, transport, _clock = client([])
+        with self.assertRaises(ValueError) as caught:
+            Secret.inline("vinted_password", "s3cret", ["https://vinted.co.uk/login"])
+        self.assertNotIn("s3cret", str(caught.exception))
+        with self.assertRaises(ValueError):
+            browser.create_run(
+                "Log in",
+                secret_bindings=[Secret.inline("vinted_password", "s3cret", ["vinted.co.uk"])] * 11,
+            )
+        self.assertEqual(transport.calls, [])
+        hidden = Secret.inline("vinted_password", "s3cret", ["vinted.co.uk"])
+        self.assertNotIn("s3cret", repr(hidden))
+
+    def test_busy_session_refuses_to_queue_a_secret(self):
+        from services.browser_use import Secret
+
+        browser, transport, _clock = client([SessionBusy(409, "busy")])
+        binding = Secret.inline("vinted_password", "s3cret", ["vinted.co.uk"])
+        with self.assertRaises(ValueError) as caught:
+            browser.assign(
+                "Log in",
+                session_id=SESSION_ID,
+                secret_bindings=[binding],
+            )
+        self.assertNotIn("s3cret", str(caught.exception))
+        self.assertEqual(len(transport.calls), 1)
+        self.assertEqual(transport.calls[0]["path"], "/runs")
+
+    def test_interrupt_refuses_to_queue_a_secret(self):
+        from services.browser_use import Secret
+
+        browser, transport, _clock = client([])
+        with self.assertRaises(ValueError):
+            browser.assign(
+                "Log in",
+                session_id=SESSION_ID,
+                interrupt=True,
+                secret_bindings=[Secret.inline("vinted_password", "s3cret", ["vinted.co.uk"])],
+            )
+        self.assertEqual(transport.calls, [])
+
+
 def _response(body):
     class Response:
         def read(self):
