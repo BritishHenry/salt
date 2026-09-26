@@ -5,9 +5,10 @@ import Foundation
 protocol ChatDataSource {
     var agentName: String { get }
     var suggestions: [String] { get }
-    func loadTranscript() -> [ChatMessage]
-    func makeUserMessage(text: String, at date: Date) -> ChatMessage
-    func reply(to userText: String, in transcript: [ChatMessage], at date: Date) -> ChatMessage
+    func loadTranscript() -> [ChatTurn]
+    func makeUserTurn(text: String, at date: Date) -> ChatTurn
+    func makeAgentTurn(at date: Date) -> AgentTurn
+    func reply(to userText: String, in transcript: [ChatTurn]) -> AsyncStream<ChatStreamEvent>
 }
 
 protocol WardrobeDataSource {

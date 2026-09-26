@@ -23,6 +23,6 @@ struct TypingIndicator: View {
             }
             Spacer(minLength: 40)
         }
-        .accessibilityLabel("Salt is writing")
+        .accessibilityLabel("Salt is thinking")
     }
 }

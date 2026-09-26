@@ -294,15 +294,24 @@ func testResponder() {
 
 func testTranscriptAndSources() throws {
     let now = Date(timeIntervalSince1970: 1_758_864_000)
-    let messages = MockTranscript.opening(at: now)
-    expectEqual(messages.map(\.id), ["welcome", "seed-user", "seed-salt"], "transcript ids")
-    expectEqual(messages[0].text, MockCopy.welcome, "welcome")
-    expectEqual(messages[0].authorName, "Salt", "salt name")
-    expectTrue(!messages[0].isFromUser, "welcome role")
-    expectEqual(messages[1].authorName, "You", "you")
-    expectTrue(messages[1].isFromUser, "user role")
-    expectEqual(messages[2].text, WardrobeInsights(items: MockWardrobe.items).gapSentence(), "seed answer")
-    expectTrue(messages[0].sentAt < messages[1].sentAt && messages[1].sentAt < messages[2].sentAt, "time order")
+    let turns = MockTranscript.opening(at: now)
+    expectEqual(turns.map(\.id), ["welcome", "seed-user", "seed-salt"], "transcript ids")
+    expectEqual(agentMessage(turns[0]) ?? "", MockCopy.welcome, "welcome")
+    expectTrue(isAgent(turns[0]), "welcome role")
+    expectEqual(userMessage(turns[1])?.authorName ?? "", "You", "you")
+    expectTrue(isUser(turns[1]), "user role")
+    expectEqual(
+        agentMessage(turns[2]) ?? "",
+        WardrobeInsights(items: MockWardrobe.items).gapSentence(),
+        "seed answer"
+    )
+    expectTrue(turns[0].sentAt < turns[1].sentAt && turns[1].sentAt < turns[2].sentAt, "time order")
+    if case .agent(let welcome) = turns[0] {
+        expectEqual(welcome.phase, .complete, "welcome complete")
+        expectEqual(welcome.thinking, "", "welcome thinking hidden")
+    } else {
+        expectTrue(false, "welcome is an agent turn")
+    }
 
     let message = ChatMessage(
         id: "m",
@@ -317,17 +326,34 @@ func testTranscriptAndSources() throws {
     let chat = MockChatDataSource()
     expectEqual(chat.agentName, SaltAgent.name, "agent name")
     expectEqual(chat.suggestions, MockCopy.suggestions, "source suggestions")
-    let reply = chat.reply(to: "Hello", in: [], at: Date(timeIntervalSince1970: 1))
-    expectEqual(reply.authorName, "Salt", "reply author")
-    expectEqual(reply.text, MockCopy.greetingReply, "reply text")
-    expectEqual(reply.sentAt, Date(timeIntervalSince1970: 1), "reply date")
-    expectTrue(!reply.isFromUser, "reply role")
+    let events = MockSaltStream.events(for: "Hello")
+    expectEqual(events.count, 4, "mock event count")
+    if case .done(let thinking, let message) = events.last {
+        expectEqual(thinking, "Checking the wardrobe.", "mock thinking")
+        expectEqual(message, MockCopy.greetingReply, "mock done message")
+    } else {
+        expectTrue(false, "mock stream ends with done")
+    }
+    expectEqual(messageDeltas(in: events).joined(), MockCopy.greetingReply, "deltas rebuild reply")
+    expectEqual(messageDeltas(in: events).count, 2, "two message deltas")
 
-    let user = chat.makeUserMessage(text: "Hi", at: Date(timeIntervalSince1970: 2))
-    expectEqual(user.text, "Hi", "user text")
-    expectEqual(user.authorName, "You", "user author")
-    expectTrue(user.isFromUser, "user message role")
-    expectEqual(user.sentAt, Date(timeIntervalSince1970: 2), "user date")
+    let sentAt = Date(timeIntervalSince1970: 2)
+    if case .user(let user) = chat.makeUserTurn(text: "Hi", at: sentAt) {
+        expectEqual(user.text, "Hi", "user text")
+        expectEqual(user.authorName, "You", "user author")
+        expectTrue(user.isFromUser, "user message role")
+        expectEqual(user.sentAt, sentAt, "user date")
+    } else {
+        expectTrue(false, "user turn")
+    }
+
+    let started = Date(timeIntervalSince1970: 3)
+    let agent = chat.makeAgentTurn(at: started)
+    expectEqual(agent.phase, .thinking, "agent starts thinking")
+    expectEqual(agent.thinking, "", "agent thinking empty")
+    expectEqual(agent.message, "", "agent message empty")
+    expectTrue(agent.error == nil, "agent error empty")
+    expectEqual(agent.startedAt, started, "agent date")
 
     expectEqual(MockWardrobeDataSource().loadItems().map(\.id), MockWardrobe.items.map(\.id), "wardrobe source")
 
@@ -534,6 +560,163 @@ func testSignup() throws {
     defaults.removePersistentDomain(forName: suite)
 }
 
+func testAgentTurnReducer() {
+    let started = Date(timeIntervalSince1970: 0)
+    var turn = AgentTurn(
+        id: "t",
+        thinking: "",
+        message: "",
+        phase: .thinking,
+        error: nil,
+        startedAt: started
+    )
+    turn = AgentTurnReducer.apply(.thinking("Checking the week. "), to: turn)
+    turn = AgentTurnReducer.apply(.thinking("No new sales."), to: turn)
+    expectEqual(turn.thinking, "Checking the week. No new sales.", "thinking joins")
+    expectEqual(turn.phase, .thinking, "still thinking")
+    expectEqual(turn.message, "", "message still empty")
+
+    turn = AgentTurnReducer.apply(.message("Nothing sold "), to: turn)
+    expectEqual(turn.phase, .writing, "first message writes")
+    expectEqual(turn.message, "Nothing sold ", "first message")
+    turn = AgentTurnReducer.apply(.message("this week."), to: turn)
+    expectEqual(turn.message, "Nothing sold this week.", "message joins")
+    expectEqual(turn.phase, .writing, "stays writing")
+
+    turn = AgentTurnReducer.apply(
+        .done(thinking: "Full thinking", message: "Full reply"),
+        to: turn
+    )
+    expectEqual(turn.thinking, "Full thinking", "done replaces thinking")
+    expectEqual(turn.message, "Full reply", "done replaces message")
+    expectEqual(turn.phase, .complete, "done completes")
+    expectTrue(turn.error == nil, "done clears error")
+
+    turn = AgentTurnReducer.apply(.message("nope"), to: turn)
+    expectEqual(turn.message, "Full reply", "ignore after complete")
+    expectEqual(turn.phase, .complete, "stays complete")
+
+    var failed = AgentTurn(
+        id: "f",
+        thinking: "",
+        message: "",
+        phase: .thinking,
+        error: nil,
+        startedAt: started
+    )
+    failed = AgentTurnReducer.apply(.thinking("Starting."), to: failed)
+    failed = AgentTurnReducer.apply(.message("Partial "), to: failed)
+    failed = AgentTurnReducer.apply(.error("The Grok API could not be reached."), to: failed)
+    expectEqual(failed.phase, .failed, "error fails the turn")
+    expectEqual(failed.message, "Partial ", "error keeps partial reply")
+    expectEqual(failed.thinking, "Starting.", "error keeps thinking")
+    expectEqual(failed.error, "The Grok API could not be reached.", "error text")
+    failed = AgentTurnReducer.apply(.thinking("more"), to: failed)
+    expectEqual(failed.thinking, "Starting.", "ignore after failed")
+    expectEqual(failed.phase, .failed, "stays failed")
+}
+
+func testServerSentEvents() {
+    let wire = """
+    event: thinking
+    data: {"delta":"Looking at the wardrobe. "}
+
+    event: thinking
+    data: {"delta":"One coat is live."}
+
+    event: message
+    data: {"delta":"Your wool coat "}
+
+    event: message
+    data: {"delta":"is on Vinted."}
+
+    event: done
+    data: {"thinking":"Looking at the wardrobe. One coat is live.","message":"Your wool coat is on Vinted."}
+
+    """ + "\n"
+    let expected: [ChatStreamEvent] = [
+        .thinking("Looking at the wardrobe. "),
+        .thinking("One coat is live."),
+        .message("Your wool coat "),
+        .message("is on Vinted."),
+        .done(
+            thinking: "Looking at the wardrobe. One coat is live.",
+            message: "Your wool coat is on Vinted."
+        )
+    ]
+    var parser = ServerSentEventParser()
+    expectEqual(parser.append(Data(wire.utf8)), expected, "sse frames")
+
+    let bytes = Data(wire.utf8)
+    let split = bytes.index(bytes.startIndex, offsetBy: bytes.count / 2)
+    var splitParser = ServerSentEventParser()
+    let first = splitParser.append(bytes.subdata(in: bytes.startIndex..<split))
+    let second = splitParser.append(bytes.subdata(in: split..<bytes.endIndex))
+    expectEqual(first + second, expected, "sse split mid-frame")
+    expectTrue(first.count < expected.count, "split holds a partial frame")
+
+    var partial = ServerSentEventParser()
+    expectEqual(
+        partial.append(Data("event: thinking\ndata: {\"delta\":\"Hi".utf8)),
+        [],
+        "partial frame waits"
+    )
+    expectEqual(
+        partial.append(Data("\"}\n\n".utf8)),
+        [.thinking("Hi")],
+        "partial frame completes"
+    )
+
+    var quoted = ServerSentEventParser()
+    expectEqual(
+        quoted.append(Data("event: message\ndata: {\"delta\":\"Say \\\"hi\\\"\"}\n\n".utf8)),
+        [.message("Say \"hi\"")],
+        "sse json string"
+    )
+
+    var skipped = ServerSentEventParser()
+    let mixed = """
+    event: ping
+    data: {"ok":true}
+
+    event: error
+    data: {"error":"The Grok API could not be reached."}
+
+    """ + "\n"
+    expectEqual(
+        skipped.append(Data(mixed.utf8)),
+        [.error("The Grok API could not be reached.")],
+        "unknown event skipped"
+    )
+}
+
+func isAgent(_ turn: ChatTurn) -> Bool {
+    if case .agent = turn { return true }
+    return false
+}
+
+func isUser(_ turn: ChatTurn) -> Bool {
+    if case .user = turn { return true }
+    return false
+}
+
+func agentMessage(_ turn: ChatTurn) -> String? {
+    if case .agent(let agent) = turn { return agent.message }
+    return nil
+}
+
+func userMessage(_ turn: ChatTurn) -> ChatMessage? {
+    if case .user(let message) = turn { return message }
+    return nil
+}
+
+func messageDeltas(in events: [ChatStreamEvent]) -> [String] {
+    events.compactMap { event in
+        if case .message(let delta) = event { return delta }
+        return nil
+    }
+}
+
 func itemDescription(_ items: [WardrobeItem], id: String) -> String {
     items.first { $0.id == id }?.listingDescription ?? ""
 }
@@ -544,6 +727,8 @@ do {
     testInsights()
     testResponder()
     try testTranscriptAndSources()
+    testAgentTurnReducer()
+    testServerSentEvents()
     try testSignup()
 } catch {
     fputs("FAIL \(error)\n", stderr)
