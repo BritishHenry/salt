@@ -1,1 +1,1 @@
-"""Repository services shared by the Django backend and other callers."""
+"""External service clients shared by the Django backend and other callers."""

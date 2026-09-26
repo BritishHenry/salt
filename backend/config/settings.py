@@ -21,8 +21,8 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# The Grok client lives at the repository root in services/. Django runs with
-# backend/ on the path, so add the repository root before application code imports it.
+# Service clients live at the repository root in services/. Django runs with
+# backend/ on the path, so add the repository root before application code imports them.
 REPO_ROOT = BASE_DIR.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
