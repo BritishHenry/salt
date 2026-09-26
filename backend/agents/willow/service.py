@@ -121,6 +121,14 @@ def _has_stored_password(user, marketplace):
     return bool(getattr(user, field))
 
 
+def _clear_stored_password(user, marketplace):
+    field = user._marketplace_password_field(marketplace)
+    if not getattr(user, field):
+        return
+    setattr(user, field, "")
+    user.save(update_fields=[field])
+
+
 def _bind_login_secret(user, site, supplied):
     """Encrypt a new password, then return the domain-locked secret."""
     if supplied:
@@ -204,6 +212,12 @@ def _browse(connection, site, *, task, profile_id, secret, password, client):
             password=password,
         )
     status, username, message = _interpret(site, output)
+    if (
+        status == "needs_login"
+        and isinstance(output, dict)
+        and output.get("blocked_by") == "password"
+    ):
+        _clear_stored_password(connection.user, site.slug)
     return _save(
         connection,
         status=status,
