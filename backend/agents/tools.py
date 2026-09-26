@@ -1,18 +1,15 @@
-"""Tools Salt calls. Each one has a Grok Responses schema and a handler."""
+"""Tools Salt calls. Each one has a Grok Responses schema, a handler, and a presenter."""
 
+from agents.bobby.tool import bobby_schema, handle_bobby, present_bobby
 from agents.willow.tool import handle_willow, willow_schema
 
 
 class Tool:
-    def __init__(self, name, schema, handler):
+    def __init__(self, name, schema, handler, present):
         self.name = name
         self.schema = schema
         self.handler = handler
-
-
-TOOLS = {
-    "willow": Tool("willow", willow_schema(), handle_willow),
-}
+        self.present = present
 
 
 def call_tool(name, user, arguments):
@@ -26,14 +23,17 @@ def call_tool(name, user, arguments):
         shown = name if isinstance(name, str) and name else "that"
         return _result("", "failed", "", f"Unknown tool {shown}.")
     if not isinstance(arguments, dict):
-        return _result("", "failed", "", "Tool arguments must be an object.")
+        return tool.present(
+            {"status": "failed", "message": "Tool arguments must be an object."},
+            {},
+        )
     try:
         result = tool.handler(user, arguments)
     except Exception:
-        return _result("", "failed", "", "That tool could not finish. Ask the seller to try again.")
+        return tool.present(_crashed(arguments), arguments)
     if not isinstance(result, dict):
-        return _result("", "failed", "", "That tool could not finish. Ask the seller to try again.")
-    return _clean(result, arguments)
+        return tool.present(_crashed(arguments), arguments)
+    return tool.present(result, arguments)
 
 
 def _clean(result, arguments):
@@ -60,6 +60,17 @@ def _text(value, password):
     return " ".join(value.split())
 
 
+def _crashed(arguments):
+    payload = {
+        "status": "failed",
+        "message": "That tool could not finish. Ask the seller to try again.",
+    }
+    item_id = arguments.get("item_id") if isinstance(arguments, dict) else None
+    if type(item_id) is int and item_id >= 1:
+        payload["item_id"] = item_id
+    return payload
+
+
 def _result(marketplace, status, external_username, message):
     return {
         "marketplace": marketplace,
@@ -67,3 +78,9 @@ def _result(marketplace, status, external_username, message):
         "external_username": external_username,
         "message": message,
     }
+
+
+TOOLS = {
+    "willow": Tool("willow", willow_schema(), handle_willow, _clean),
+    "bobby": Tool("bobby", bobby_schema(), handle_bobby, present_bobby),
+}
