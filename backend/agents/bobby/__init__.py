@@ -1,5 +1,7 @@
 """Listing specialist.
 
-Writes titles and descriptions from a confirmed item, selects categories
-and attributes, and adapts the listing for each marketplace.
+Turns photos and item details into listings; writes titles and descriptions;
+selects categories and attributes; adapts listings for each marketplace.
+Publishes approved listings and applies later content or price updates.
 """
+

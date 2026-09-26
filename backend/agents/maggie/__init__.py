@@ -1,5 +1,5 @@
-"""Back office and marketplace sync.
+"""Cross-marketplace delisting.
 
-Publishes approved listings, checks their status across marketplaces, applies
-updates, and removes other listings when an item sells. Flags failed updates to Salt.
+Watches live listings for a sale on any marketplace, removes the matching
+listings on the others, and tells Salt when a removal fails.
 """

@@ -201,6 +201,28 @@ class GrokClientTests(unittest.TestCase):
         self.assertIs(body["stream"], True)
         self.assertIs(body["store"], False)
 
+    def test_responses_reasoning_effort_is_a_nested_effort(self):
+        fake = FakeUrlopen()
+        client = client_with(fake)
+        client.responses.create_model_response(
+            model="grok-4.7",
+            input="hello",
+            reasoning_effort="low",
+        )
+        body = request_json(fake.requests[0])
+        self.assertEqual(body["model"], "grok-4.7")
+        self.assertEqual(body["reasoning"], {"effort": "low"})
+        self.assertNotIn("reasoning_effort", body)
+
+    def test_responses_reasoning_effort_rejects_unknown_values(self):
+        client = client_with(FakeUrlopen())
+        with self.assertRaises(GrokUsageError):
+            client.responses.create_model_response(
+                model="grok-4.7",
+                input="hello",
+                reasoning_effort="none",
+            )
+
     def test_json_object_answer_parses_fenced_json(self):
         payload = dict(EMPTY)
         payload["output"] = [

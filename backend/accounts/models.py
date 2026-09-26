@@ -53,11 +53,40 @@ class User(AbstractBaseUser, PermissionsMixin):
     browser_profile_status = models.CharField(max_length=16, default="pending")
     browser_profile_error = models.TextField(blank=True)
     stripe_provision_error = models.TextField(blank=True)
+    vinted_password = models.TextField(blank=True)
+    depop_password = models.TextField(blank=True)
+    ebay_password = models.TextField(blank=True)
 
     objects = UserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["display_name"]
+
+    _MARKETPLACE_PASSWORD_FIELDS = {
+        "vinted": "vinted_password",
+        "depop": "depop_password",
+        "ebay": "ebay_password",
+    }
+
+    def set_marketplace_password(self, marketplace, password):
+        """Store ``password`` as ciphertext. The caller saves the user."""
+        from accounts.secrets import encrypt_password
+
+        field = self._marketplace_password_field(marketplace)
+        setattr(self, field, encrypt_password(password))
+
+    def marketplace_password(self, marketplace):
+        """Return the decrypted marketplace password, or "" when none is stored."""
+        from accounts.secrets import decrypt_password
+
+        field = self._marketplace_password_field(marketplace)
+        return decrypt_password(getattr(self, field))
+
+    def _marketplace_password_field(self, marketplace):
+        try:
+            return self._MARKETPLACE_PASSWORD_FIELDS[marketplace]
+        except KeyError as exc:
+            raise ValueError(f"Unknown marketplace {marketplace!r}.") from exc
 
     def __str__(self):
         return self.email
