@@ -1,21 +1,16 @@
 """Tools Salt calls. Each one has a Grok Responses schema, a handler, and a presenter."""
 
+from agents.bobby.tool import bobby_schema, handle_bobby, present_bobby
 from agents.maggie.tool import handle_maggie, maggie_schema, present_maggie
 from agents.willow.tool import handle_willow, willow_schema
 
 
 class Tool:
-    def __init__(self, name, schema, handler, present=None):
+    def __init__(self, name, schema, handler, present):
         self.name = name
         self.schema = schema
         self.handler = handler
         self.present = present
-
-
-TOOLS = {
-    "willow": Tool("willow", willow_schema(), handle_willow),
-    "maggie": Tool("maggie", maggie_schema(), handle_maggie, present_maggie),
-}
 
 
 def call_tool(name, user, arguments):
@@ -28,25 +23,18 @@ def call_tool(name, user, arguments):
     if tool is None:
         shown = name if isinstance(name, str) and name else "that"
         return _result("", "failed", "", f"Unknown tool {shown}.")
-    present = tool.present or _clean
     if not isinstance(arguments, dict):
-        return present(
+        return tool.present(
             {"status": "failed", "message": "Tool arguments must be an object."},
             {},
         )
     try:
         result = tool.handler(user, arguments)
     except Exception:
-        return present(
-            {"status": "failed", "message": "That tool could not finish. Ask the seller to try again."},
-            arguments if isinstance(arguments, dict) else {},
-        )
+        return tool.present(_crashed(arguments), arguments)
     if not isinstance(result, dict):
-        return present(
-            {"status": "failed", "message": "That tool could not finish. Ask the seller to try again."},
-            arguments,
-        )
-    return present(result, arguments)
+        return tool.present(_crashed(arguments), arguments)
+    return tool.present(result, arguments)
 
 
 def _clean(result, arguments):
@@ -73,6 +61,17 @@ def _text(value, password):
     return " ".join(value.split())
 
 
+def _crashed(arguments):
+    payload = {
+        "status": "failed",
+        "message": "That tool could not finish. Ask the seller to try again.",
+    }
+    item_id = arguments.get("item_id") if isinstance(arguments, dict) else None
+    if type(item_id) is int and item_id >= 1:
+        payload["item_id"] = item_id
+    return payload
+
+
 def _result(marketplace, status, external_username, message):
     return {
         "marketplace": marketplace,
@@ -80,3 +79,10 @@ def _result(marketplace, status, external_username, message):
         "external_username": external_username,
         "message": message,
     }
+
+
+TOOLS = {
+    "willow": Tool("willow", willow_schema(), handle_willow, _clean),
+    "bobby": Tool("bobby", bobby_schema(), handle_bobby, present_bobby),
+    "maggie": Tool("maggie", maggie_schema(), handle_maggie, present_maggie),
+}

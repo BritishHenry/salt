@@ -294,15 +294,24 @@ func testResponder() {
 
 func testTranscriptAndSources() throws {
     let now = Date(timeIntervalSince1970: 1_758_864_000)
-    let messages = MockTranscript.opening(at: now)
-    expectEqual(messages.map(\.id), ["welcome", "seed-user", "seed-salt"], "transcript ids")
-    expectEqual(messages[0].text, MockCopy.welcome, "welcome")
-    expectEqual(messages[0].authorName, "Salt", "salt name")
-    expectTrue(!messages[0].isFromUser, "welcome role")
-    expectEqual(messages[1].authorName, "You", "you")
-    expectTrue(messages[1].isFromUser, "user role")
-    expectEqual(messages[2].text, WardrobeInsights(items: MockWardrobe.items).gapSentence(), "seed answer")
-    expectTrue(messages[0].sentAt < messages[1].sentAt && messages[1].sentAt < messages[2].sentAt, "time order")
+    let turns = MockTranscript.opening(at: now)
+    expectEqual(turns.map(\.id), ["welcome", "seed-user", "seed-salt"], "transcript ids")
+    expectEqual(agentMessage(turns[0]) ?? "", MockCopy.welcome, "welcome")
+    expectTrue(isAgent(turns[0]), "welcome role")
+    expectEqual(userMessage(turns[1])?.authorName ?? "", "You", "you")
+    expectTrue(isUser(turns[1]), "user role")
+    expectEqual(
+        agentMessage(turns[2]) ?? "",
+        WardrobeInsights(items: MockWardrobe.items).gapSentence(),
+        "seed answer"
+    )
+    expectTrue(turns[0].sentAt < turns[1].sentAt && turns[1].sentAt < turns[2].sentAt, "time order")
+    if case .agent(let welcome) = turns[0] {
+        expectEqual(welcome.phase, .complete, "welcome complete")
+        expectEqual(welcome.thinking, "", "welcome thinking hidden")
+    } else {
+        expectTrue(false, "welcome is an agent turn")
+    }
 
     let message = ChatMessage(
         id: "m",
@@ -317,17 +326,34 @@ func testTranscriptAndSources() throws {
     let chat = MockChatDataSource()
     expectEqual(chat.agentName, SaltAgent.name, "agent name")
     expectEqual(chat.suggestions, MockCopy.suggestions, "source suggestions")
-    let reply = chat.reply(to: "Hello", in: [], at: Date(timeIntervalSince1970: 1))
-    expectEqual(reply.authorName, "Salt", "reply author")
-    expectEqual(reply.text, MockCopy.greetingReply, "reply text")
-    expectEqual(reply.sentAt, Date(timeIntervalSince1970: 1), "reply date")
-    expectTrue(!reply.isFromUser, "reply role")
+    let events = MockSaltStream.events(for: "Hello")
+    expectEqual(events.count, 4, "mock event count")
+    if case .done(let thinking, let message) = events.last {
+        expectEqual(thinking, "Checking the wardrobe.", "mock thinking")
+        expectEqual(message, MockCopy.greetingReply, "mock done message")
+    } else {
+        expectTrue(false, "mock stream ends with done")
+    }
+    expectEqual(messageDeltas(in: events).joined(), MockCopy.greetingReply, "deltas rebuild reply")
+    expectEqual(messageDeltas(in: events).count, 2, "two message deltas")
 
-    let user = chat.makeUserMessage(text: "Hi", at: Date(timeIntervalSince1970: 2))
-    expectEqual(user.text, "Hi", "user text")
-    expectEqual(user.authorName, "You", "user author")
-    expectTrue(user.isFromUser, "user message role")
-    expectEqual(user.sentAt, Date(timeIntervalSince1970: 2), "user date")
+    let sentAt = Date(timeIntervalSince1970: 2)
+    if case .user(let user) = chat.makeUserTurn(text: "Hi", at: sentAt) {
+        expectEqual(user.text, "Hi", "user text")
+        expectEqual(user.authorName, "You", "user author")
+        expectTrue(user.isFromUser, "user message role")
+        expectEqual(user.sentAt, sentAt, "user date")
+    } else {
+        expectTrue(false, "user turn")
+    }
+
+    let started = Date(timeIntervalSince1970: 3)
+    let agent = chat.makeAgentTurn(at: started)
+    expectEqual(agent.phase, .thinking, "agent starts thinking")
+    expectEqual(agent.thinking, "", "agent thinking empty")
+    expectEqual(agent.message, "", "agent message empty")
+    expectTrue(agent.error == nil, "agent error empty")
+    expectEqual(agent.startedAt, started, "agent date")
 
     expectEqual(MockWardrobeDataSource().loadItems().map(\.id), MockWardrobe.items.map(\.id), "wardrobe source")
 
@@ -534,6 +560,268 @@ func testSignup() throws {
     defaults.removePersistentDomain(forName: suite)
 }
 
+func testAgentTurnReducer() {
+    let started = Date(timeIntervalSince1970: 0)
+    var turn = AgentTurn(
+        id: "t",
+        thinking: "",
+        message: "",
+        phase: .thinking,
+        error: nil,
+        startedAt: started
+    )
+    turn = AgentTurnReducer.apply(.thinking("Checking the week. "), to: turn)
+    turn = AgentTurnReducer.apply(.thinking("No new sales."), to: turn)
+    expectEqual(turn.thinking, "Checking the week. No new sales.", "thinking joins")
+    expectEqual(turn.phase, .thinking, "still thinking")
+    expectEqual(turn.message, "", "message still empty")
+
+    turn = AgentTurnReducer.apply(.message("Nothing sold "), to: turn)
+    expectEqual(turn.phase, .writing, "first message writes")
+    expectEqual(turn.message, "Nothing sold ", "first message")
+    turn = AgentTurnReducer.apply(.message("this week."), to: turn)
+    expectEqual(turn.message, "Nothing sold this week.", "message joins")
+    expectEqual(turn.phase, .writing, "stays writing")
+
+    turn = AgentTurnReducer.apply(
+        .done(thinking: "Full thinking", message: "Full reply"),
+        to: turn
+    )
+    expectEqual(turn.thinking, "Full thinking", "done replaces thinking")
+    expectEqual(turn.message, "Full reply", "done replaces message")
+    expectEqual(turn.phase, .complete, "done completes")
+    expectTrue(turn.error == nil, "done clears error")
+
+    turn = AgentTurnReducer.apply(.message("nope"), to: turn)
+    expectEqual(turn.message, "Full reply", "ignore after complete")
+    expectEqual(turn.phase, .complete, "stays complete")
+
+    var failed = AgentTurn(
+        id: "f",
+        thinking: "",
+        message: "",
+        phase: .thinking,
+        error: nil,
+        startedAt: started
+    )
+    failed = AgentTurnReducer.apply(.thinking("Starting."), to: failed)
+    failed = AgentTurnReducer.apply(.message("Partial "), to: failed)
+    failed = AgentTurnReducer.apply(.error("The Grok API could not be reached."), to: failed)
+    expectEqual(failed.phase, .failed, "error fails the turn")
+    expectEqual(failed.message, "Partial ", "error keeps partial reply")
+    expectEqual(failed.thinking, "Starting.", "error keeps thinking")
+    expectEqual(failed.error, "The Grok API could not be reached.", "error text")
+    failed = AgentTurnReducer.apply(.thinking("more"), to: failed)
+    expectEqual(failed.thinking, "Starting.", "ignore after failed")
+    expectEqual(failed.phase, .failed, "stays failed")
+}
+
+func testServerSentEvents() {
+    let wire = """
+    event: thinking
+    data: {"delta":"Looking at the wardrobe. "}
+
+    event: thinking
+    data: {"delta":"One coat is live."}
+
+    event: message
+    data: {"delta":"Your wool coat "}
+
+    event: message
+    data: {"delta":"is on Vinted."}
+
+    event: done
+    data: {"thinking":"Looking at the wardrobe. One coat is live.","message":"Your wool coat is on Vinted."}
+
+    """ + "\n"
+    let expected: [ChatStreamEvent] = [
+        .thinking("Looking at the wardrobe. "),
+        .thinking("One coat is live."),
+        .message("Your wool coat "),
+        .message("is on Vinted."),
+        .done(
+            thinking: "Looking at the wardrobe. One coat is live.",
+            message: "Your wool coat is on Vinted."
+        )
+    ]
+    var parser = ServerSentEventParser()
+    expectEqual(parser.append(Data(wire.utf8)), expected, "sse frames")
+
+    let bytes = Data(wire.utf8)
+    let split = bytes.index(bytes.startIndex, offsetBy: bytes.count / 2)
+    var splitParser = ServerSentEventParser()
+    let first = splitParser.append(bytes.subdata(in: bytes.startIndex..<split))
+    let second = splitParser.append(bytes.subdata(in: split..<bytes.endIndex))
+    expectEqual(first + second, expected, "sse split mid-frame")
+    expectTrue(first.count < expected.count, "split holds a partial frame")
+
+    var partial = ServerSentEventParser()
+    expectEqual(
+        partial.append(Data("event: thinking\ndata: {\"delta\":\"Hi".utf8)),
+        [],
+        "partial frame waits"
+    )
+    expectEqual(
+        partial.append(Data("\"}\n\n".utf8)),
+        [.thinking("Hi")],
+        "partial frame completes"
+    )
+
+    var quoted = ServerSentEventParser()
+    expectEqual(
+        quoted.append(Data("event: message\ndata: {\"delta\":\"Say \\\"hi\\\"\"}\n\n".utf8)),
+        [.message("Say \"hi\"")],
+        "sse json string"
+    )
+
+    var skipped = ServerSentEventParser()
+    let mixed = """
+    event: ping
+    data: {"ok":true}
+
+    event: error
+    data: {"error":"The Grok API could not be reached."}
+
+    """ + "\n"
+    expectEqual(
+        skipped.append(Data(mixed.utf8)),
+        [.error("The Grok API could not be reached.")],
+        "unknown event skipped"
+    )
+}
+
+func isAgent(_ turn: ChatTurn) -> Bool {
+    if case .agent = turn { return true }
+    return false
+}
+
+func isUser(_ turn: ChatTurn) -> Bool {
+    if case .user = turn { return true }
+    return false
+}
+
+func agentMessage(_ turn: ChatTurn) -> String? {
+    if case .agent(let agent) = turn { return agent.message }
+    return nil
+}
+
+func userMessage(_ turn: ChatTurn) -> ChatMessage? {
+    if case .user(let message) = turn { return message }
+    return nil
+}
+
+func messageDeltas(in events: [ChatStreamEvent]) -> [String] {
+    events.compactMap { event in
+        if case .message(let delta) = event { return delta }
+        return nil
+    }
+}
+
+func testSaltChatExchange() throws {
+    let welcome = ChatTurn.agent(
+        AgentTurn(
+            id: "local:welcome",
+            thinking: "",
+            message: "Hello, I'm Salt.",
+            phase: .complete,
+            error: nil,
+            startedAt: Date(timeIntervalSince1970: 1)
+        )
+    )
+    let asked = ChatTurn.user(
+        ChatMessage(
+            id: "u1",
+            author: .user,
+            text: "What is listed?",
+            sentAt: Date(timeIntervalSince1970: 2)
+        )
+    )
+    let answered = ChatTurn.agent(
+        AgentTurn(
+            id: "a1",
+            thinking: "",
+            message: "The coat is on Vinted.",
+            phase: .complete,
+            error: nil,
+            startedAt: Date(timeIntervalSince1970: 3)
+        )
+    )
+    let blank = ChatTurn.user(
+        ChatMessage(id: "blank", author: .user, text: "  ", sentAt: Date())
+    )
+    expectEqual(
+        SaltChatExchange.wireMessages(from: [welcome, asked, answered, blank]),
+        [
+            SaltChatWireMessage(role: "user", content: "What is listed?"),
+            SaltChatWireMessage(role: "assistant", content: "The coat is on Vinted.")
+        ],
+        "wire messages skip the local welcome"
+    )
+
+    let request = try SaltChatExchange.request(
+        baseURL: SaltAPIConfiguration.defaultBaseURL,
+        token: "tok_1",
+        transcript: [welcome, asked]
+    )
+    expectEqual(request.httpMethod ?? "", "POST", "chat method")
+    expectEqual(request.url?.absoluteString, "http://127.0.0.1:8000/api/agents/salt/chat/", "chat path")
+    expectEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_1", "chat auth")
+    expectEqual(request.value(forHTTPHeaderField: "Accept"), "text/event-stream", "chat accept")
+    let body = try JSONDecoder().decode(ChatRequestFixture.self, from: request.httpBody ?? Data())
+    expectEqual(body.messages, [SaltChatWireMessage(role: "user", content: "What is listed?")], "chat body")
+
+    var parser = SaltChatSSEParser()
+    let first = parser.append("event: thinking\ndata: {\"delta\":\"Looking.\"}\n")
+    expectEqual(first, [], "parser waits for a blank line")
+    let streamed = parser.append("\nevent: message\ndata: {\"delta\":\"Your coat \"}\n\n")
+    expectEqual(
+        streamed,
+        [.thinking("Looking."), .message("Your coat ")],
+        "parser reads complete events"
+    )
+    let rest = parser.append("event: message\ndata: {\"delta\":\"is on Vinted.\"}\n\nevent: done\ndata: {\"thinking\":\"Looking.\",\"message\":\"Your coat is on Vinted.\"}\n\n")
+    expectEqual(
+        rest,
+        [
+            .message("is on Vinted."),
+            .done(thinking: "Looking.", message: "Your coat is on Vinted.")
+        ],
+        "parser reads the rest of the stream"
+    )
+
+    var split = SaltChatSSEParser()
+    _ = split.append("event: error\ndata: {\"error\":\"The Grok API ")
+    let failed = split.append("could not be reached.\"}\n\n")
+    expectEqual(failed, [.failure("The Grok API could not be reached.")], "parser joins a split data line")
+
+    var draft = SaltChatDraft()
+    draft.apply(.thinking("Looking."))
+    draft.apply(.message("Your coat "))
+    draft.apply(.done(thinking: "Looking.", message: "Your coat is on Vinted."))
+    expectEqual(draft.thinking, "Looking.", "done replaces thinking")
+    expectEqual(draft.message, "Your coat is on Vinted.", "done replaces the reply")
+    draft.apply(.failure("The Grok API could not be reached."))
+    expectEqual(
+        draft.message,
+        "Your coat is on Vinted.\n\nThe Grok API could not be reached.",
+        "failure is appended"
+    )
+
+    var empty = SaltChatDraft()
+    empty.apply(.failure("  "))
+    expectEqual(empty.message, "Salt couldn't finish that. Try again.", "blank failure")
+
+    let denied = SaltChatExchange.message(
+        forHTTPError: 401,
+        body: Data("{\"error\":\"Authentication required.\"}".utf8)
+    )
+    expectEqual(denied, "Authentication required.", "http error message")
+}
+
+private struct ChatRequestFixture: Decodable {
+    var messages: [SaltChatWireMessage]
+}
+
 func itemDescription(_ items: [WardrobeItem], id: String) -> String {
     items.first { $0.id == id }?.listingDescription ?? ""
 }
@@ -544,7 +832,10 @@ do {
     testInsights()
     testResponder()
     try testTranscriptAndSources()
+    testAgentTurnReducer()
+    testServerSentEvents()
     try testSignup()
+    try testSaltChatExchange()
 } catch {
     fputs("FAIL \(error)\n", stderr)
     exit(1)

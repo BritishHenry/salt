@@ -1,4 +1,4 @@
-/// Composition root. Chat and wardrobe stay on mock data until those APIs exist.
+/// Composition root. Wardrobe stays on mock data. Signed-in chat talks to Salt.
 struct AppDependencies {
     var chat: any ChatDataSource
     var wardrobe: any WardrobeDataSource
@@ -12,7 +12,7 @@ struct AppDependencies {
 
     static func signedIn(_ account: SignedInAccount) -> AppDependencies {
         AppDependencies(
-            chat: MockChatDataSource(),
+            chat: LiveChatDataSource(token: account.token, baseURL: SaltAPI.baseURL),
             wardrobe: MockWardrobeDataSource(),
             account: SignedInAccountDataSource(account: account)
         )

@@ -63,6 +63,12 @@
 		00000000B10000000000007A /* SessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000079 /* SessionController.swift */; };
 		00000000B10000000000007C /* AppGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000007B /* AppGate.swift */; };
 		00000000B10000000000007E /* SignupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000007D /* SignupView.swift */; };
+		00000000B100000000000082 /* ChatTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000081 /* ChatTurn.swift */; };
+		00000000B100000000000084 /* AgentTurnReducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000083 /* AgentTurnReducer.swift */; };
+		00000000B100000000000086 /* ServerSentEventParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000085 /* ServerSentEventParser.swift */; };
+		00000000B100000000000088 /* ChatTurnView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000087 /* ChatTurnView.swift */; };
+		00000000B10000000000008A /* SaltChatExchange.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000089 /* SaltChatExchange.swift */; };
+		00000000B10000000000008C /* LiveChatDataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000008B /* LiveChatDataSource.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -123,6 +129,12 @@
 		00000000B100000000000079 /* SessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionController.swift; sourceTree = "<group>"; };
 		00000000B10000000000007B /* AppGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGate.swift; sourceTree = "<group>"; };
 		00000000B10000000000007D /* SignupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignupView.swift; sourceTree = "<group>"; };
+		00000000B100000000000081 /* ChatTurn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTurn.swift; sourceTree = "<group>"; };
+		00000000B100000000000083 /* AgentTurnReducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTurnReducer.swift; sourceTree = "<group>"; };
+		00000000B100000000000085 /* ServerSentEventParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerSentEventParser.swift; sourceTree = "<group>"; };
+		00000000B100000000000087 /* ChatTurnView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTurnView.swift; sourceTree = "<group>"; };
+		00000000B100000000000089 /* SaltChatExchange.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltChatExchange.swift; sourceTree = "<group>"; };
+		00000000B10000000000008B /* LiveChatDataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveChatDataSource.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -167,6 +179,7 @@
 				00000000B100000000000077 /* SaltAPI.swift */,
 				00000000B100000000000007 /* SaltAppearance.swift */,
 				00000000B100000000000079 /* SessionController.swift */,
+				00000000B10000000000008B /* LiveChatDataSource.swift */,
 				00000000B100000000000075 /* URLSessionHTTPTransport.swift */,
 			);
 			path = App;
@@ -188,6 +201,7 @@
 			children = (
 				00000000B10000000000006F /* AccountClient.swift */,
 				00000000B100000000000009 /* DataSources.swift */,
+				00000000B100000000000089 /* SaltChatExchange.swift */,
 				00000000B100000000000071 /* SessionStore.swift */,
 				00000000B100000000000073 /* SignedInAccountDataSource.swift */,
 			);
@@ -198,8 +212,10 @@
 			isa = PBXGroup;
 			children = (
 				00000000B10000000000006D /* AccountProfileBuilder.swift */,
+				00000000B100000000000083 /* AgentTurnReducer.swift */,
 				00000000B10000000000000B /* ListPhrase.swift */,
 				00000000B10000000000000D /* MoneyFormat.swift */,
+				00000000B100000000000085 /* ServerSentEventParser.swift */,
 				00000000B10000000000006B /* SignupForm.swift */,
 				00000000B10000000000000F /* WardrobeFilter.swift */,
 				00000000B100000000000011 /* WardrobeInsights.swift */,
@@ -226,6 +242,7 @@
 			children = (
 				00000000B100000000000021 /* AccountProfile.swift */,
 				00000000B100000000000023 /* ChatMessage.swift */,
+				00000000B100000000000081 /* ChatTurn.swift */,
 				00000000B100000000000069 /* SignedInAccount.swift */,
 				00000000B100000000000025 /* GarmentKind.swift */,
 				00000000B100000000000027 /* Marketplace.swift */,
@@ -308,6 +325,7 @@
 			children = (
 				00000000B10000000000003F /* ChatBubble.swift */,
 				00000000B100000000000041 /* ChatComposer.swift */,
+				00000000B100000000000087 /* ChatTurnView.swift */,
 				00000000B100000000000043 /* SaltChatHeader.swift */,
 				00000000B100000000000045 /* SuggestionRow.swift */,
 				00000000B100000000000047 /* TypingIndicator.swift */,
@@ -460,6 +478,8 @@
 				00000000B10000000000006C /* SignupForm.swift in Sources */,
 				00000000B10000000000006E /* AccountProfileBuilder.swift in Sources */,
 				00000000B100000000000070 /* AccountClient.swift in Sources */,
+				00000000B10000000000008A /* SaltChatExchange.swift in Sources */,
+				00000000B10000000000008C /* LiveChatDataSource.swift in Sources */,
 				00000000B100000000000072 /* SessionStore.swift in Sources */,
 				00000000B100000000000074 /* SignedInAccountDataSource.swift in Sources */,
 				00000000B100000000000076 /* URLSessionHTTPTransport.swift in Sources */,
@@ -467,6 +487,10 @@
 				00000000B10000000000007A /* SessionController.swift in Sources */,
 				00000000B10000000000007C /* AppGate.swift in Sources */,
 				00000000B10000000000007E /* SignupView.swift in Sources */,
+				00000000B100000000000082 /* ChatTurn.swift in Sources */,
+				00000000B100000000000084 /* AgentTurnReducer.swift in Sources */,
+				00000000B100000000000086 /* ServerSentEventParser.swift in Sources */,
+				00000000B100000000000088 /* ChatTurnView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
