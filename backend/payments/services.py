@@ -1,7 +1,7 @@
 import sys
 import threading
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, close_old_connections, connections, transaction
 
 from payments.attribution import (
     AttributionError,
@@ -86,7 +86,7 @@ def record_sale(
                 currency="gbp",
             )
             if listing is not None:
-                listing.mark_sold(withdraw_siblings=not pending_delist)
+                listing.mark_sold()
             if pending_delist:
                 user_id = seller.user_id
                 targets = tuple(pending_delist)
@@ -131,9 +131,13 @@ def _schedule_delist_after_sale(user_id, targets):
 
 
 def _delist_sold_copies(user_id, targets):
-    from agents.maggie.publish import delist_after_sale
+    close_old_connections()
+    try:
+        from agents.maggie.publish import delist_after_sale
 
-    delist_after_sale(user_id, targets)
+        delist_after_sale(user_id, targets)
+    finally:
+        connections.close_all()
 
 
 def authorize_sale(*, seller, sale_id, user):

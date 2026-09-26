@@ -23,9 +23,7 @@ PUBLISH_TIMEOUT = 300
 SHORT_TIMEOUT = 180
 
 _IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
-_PUBLISHABLE = frozenset(
-    {Listing.Status.DRAFT, Listing.Status.FAILED, Listing.Status.PUBLISHING}
-)
+_PUBLISHABLE = frozenset({Listing.Status.DRAFT, Listing.Status.FAILED})
 _OPEN = frozenset(
     {Listing.Status.LIVE, Listing.Status.PAUSED, Listing.Status.PUBLISHING}
 )
