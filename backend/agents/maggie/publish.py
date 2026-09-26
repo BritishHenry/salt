@@ -23,7 +23,9 @@ PUBLISH_TIMEOUT = 300
 SHORT_TIMEOUT = 180
 
 _IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
-_PUBLISHABLE = frozenset({Listing.Status.DRAFT, Listing.Status.FAILED})
+_PUBLISHABLE = frozenset(
+    {Listing.Status.DRAFT, Listing.Status.FAILED, Listing.Status.PUBLISHING}
+)
 _OPEN = frozenset(
     {Listing.Status.LIVE, Listing.Status.PAUSED, Listing.Status.PUBLISHING}
 )
@@ -642,9 +644,8 @@ def _browse(browser, *, task, profile_id, schema, timeout, workspace_id=None, fi
             try:
                 browser.release(created.session_id)
             except Exception:
-                if kind is None:
+                if kind is None and output is None:
                     kind = "crashed"
-                    output = None
     return kind, output
 
 

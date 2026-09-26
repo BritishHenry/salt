@@ -1,3 +1,6 @@
+import sys
+import threading
+
 from django.db import IntegrityError, transaction
 
 from payments.attribution import (
@@ -83,11 +86,15 @@ def record_sale(
                 currency="gbp",
             )
             if listing is not None:
-                listing.mark_sold()
+                listing.mark_sold(withdraw_siblings=not pending_delist)
             if pending_delist:
                 user_id = seller.user_id
                 targets = tuple(pending_delist)
-                transaction.on_commit(lambda: _delist_sold_copies(user_id, targets))
+                transaction.on_commit(
+                    lambda user_id=user_id, targets=targets: _schedule_delist_after_sale(
+                        user_id, targets
+                    )
+                )
             return sale
     except (Item.DoesNotExist, Listing.DoesNotExist) as exc:
         raise PaymentError("Listing not found.", status=404) from exc
@@ -110,6 +117,17 @@ def _open_copies(item, sold_listing_id):
         ):
             targets.append((row.pk, row.status))
     return targets
+
+
+def _schedule_delist_after_sale(user_id, targets):
+    if "test" in sys.argv:
+        _delist_sold_copies(user_id, targets)
+        return
+    threading.Thread(
+        target=_delist_sold_copies,
+        args=(user_id, targets),
+        daemon=True,
+    ).start()
 
 
 def _delist_sold_copies(user_id, targets):
