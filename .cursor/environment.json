@@ -1,0 +1,19 @@
+{
+  "name": "Salt backend",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "django-dev-server",
+      "command": "cd backend && . .venv/bin/activate && python manage.py runserver 0.0.0.0:8000",
+      "description": "Salt Django development server on http://localhost:8000 (admin at /admin/)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "Django backend",
+      "port": 8000
+    }
+  ]
+}
