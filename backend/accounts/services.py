@@ -159,7 +159,9 @@ def _provision_browser(user):
         client = BrowserUseClient()
         profile = _matching_profile(client, user_id)
         if profile is None:
-            profile = client.create_profile(name=user.display_name, user_id=user_id)
+            profile = client.create_profile(
+                name=_browser_profile_name(user.display_name), user_id=user_id
+            )
         user.browser_profile_id = profile.id
         user.browser_profile_status = "ready"
         user.browser_profile_error = ""
@@ -173,6 +175,13 @@ def _provision_browser(user):
             "browser_profile_error",
         ]
     )
+
+
+def _browser_profile_name(display_name):
+    name = (display_name or "").strip()
+    if len(name) > 100:
+        name = name[:100]
+    return name or None
 
 
 def _matching_profile(client, user_id):
