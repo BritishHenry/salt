@@ -121,6 +121,44 @@ def refresh_transfers_status(account_id):
     return transfers_status_from_account(account)
 
 
+def retrieve_account_balance(account_id):
+    """Available and pending amounts on the seller's connected Stripe account."""
+    try:
+        balance = client().v1.balance.retrieve(
+            options={"stripe_account": account_id},
+        )
+    except stripe.StripeError as exc:
+        _raise_stripe(exc)
+    return balance_amounts(balance)
+
+
+def balance_amounts(balance):
+    return {
+        "available": _amount_rows(_read(balance, "available")),
+        "pending": _amount_rows(_read(balance, "pending")),
+    }
+
+
+def _read(value, key):
+    if isinstance(value, dict):
+        return value.get(key)
+    try:
+        return value[key]
+    except (KeyError, TypeError, AttributeError):
+        return getattr(value, key, None)
+
+
+def _amount_rows(entries):
+    rows = []
+    for entry in entries or []:
+        amount = _read(entry, "amount")
+        currency = _read(entry, "currency")
+        if isinstance(amount, bool) or not isinstance(amount, int) or not currency:
+            continue
+        rows.append({"amount": amount, "currency": str(currency).lower()})
+    return rows
+
+
 def express_login_link(account_id):
     try:
         link = client().v1.accounts.login_links.create(account_id)

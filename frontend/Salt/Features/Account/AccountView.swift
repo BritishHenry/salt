@@ -19,6 +19,10 @@ struct AccountView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     SaltScreenHeader(title: "Account", subtitle: "Your selling setup")
                     AccountProfileHeader(profile: viewModel.profile)
+                    StripeBalanceCard(
+                        available: viewModel.profile.stripeAvailableLabel ?? "Unavailable",
+                        pending: viewModel.profile.stripePendingLabel
+                    )
                     if let note = viewModel.profile.statusNote {
                         Text(note)
                             .font(SaltFont.body)
@@ -45,6 +49,9 @@ struct AccountView: View {
                 .padding(.bottom, 12)
             }
             .accessibilityIdentifier("account.settings")
+        }
+        .task {
+            await viewModel.refresh()
         }
         .confirmationDialog("Log out of Salt?", isPresented: $confirmingLogout, titleVisibility: .visible) {
             Button("Log out", role: .destructive) {
@@ -135,21 +142,54 @@ private struct AccountProfileHeader: View {
             Text(profile.displayName)
                 .font(SaltFont.title)
                 .foregroundStyle(SaltColor.cocoa)
+                .accessibilityIdentifier("account.name")
             Text(profile.email)
                 .font(SaltFont.body)
                 .foregroundStyle(SaltColor.cocoa)
+                .accessibilityIdentifier("account.email")
             Text(profile.memberSinceLabel)
                 .font(SaltFont.caption)
                 .foregroundStyle(SaltColor.cocoa)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("account.user")
     }
 
     private var initials: String {
         let parts = profile.displayName.split(separator: " ")
         let letters = parts.prefix(2).compactMap(\.first)
         return String(letters).uppercased()
+    }
+}
+
+private struct StripeBalanceCard: View {
+    let available: String
+    let pending: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("In your Stripe account")
+                .font(SaltFont.caption.weight(.semibold))
+                .foregroundStyle(SaltColor.cocoa)
+            Text(available)
+                .font(SaltFont.title)
+                .foregroundStyle(SaltColor.cocoa)
+                .accessibilityIdentifier("account.balance")
+            if let pending {
+                Text(pending)
+                    .font(SaltFont.body)
+                    .foregroundStyle(SaltColor.cocoa)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(SaltColor.primarySoft, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(SaltColor.hairline, lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
     }
 }
 

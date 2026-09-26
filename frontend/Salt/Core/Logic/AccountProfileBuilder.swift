@@ -4,20 +4,23 @@ enum AccountProfileBuilder {
     static func profile(for account: SignedInAccount) -> AccountProfile {
         let stripeReady = account.stripe.hasAccount
         let browserReady = account.browserProfile.isReady
+        let money = stripeMoney(account.stripe)
         return AccountProfile(
             displayName: account.user.displayName,
             email: account.user.email,
             memberSinceLabel: memberLabel(stripeReady: stripeReady, browserReady: browserReady),
             sections: [
                 profileSection(account),
-                payoutsSection(account),
+                payoutsSection(account, money: money),
                 browserSection(account),
                 marketplacesSection(),
                 aboutSection()
             ],
             stripeOnboardingURL: account.stripe.onboardingUrl,
             needsProvisionRetry: !stripeReady || !browserReady,
-            statusNote: statusNote(account)
+            statusNote: statusNote(account),
+            stripeAvailableLabel: money.available,
+            stripePendingLabel: money.pendingCaption
         )
     }
 
@@ -45,14 +48,19 @@ enum AccountProfileBuilder {
         )
     }
 
-    private static func payoutsSection(_ account: SignedInAccount) -> AccountSection {
-        AccountSection(
-            id: "payouts",
-            title: "Payouts",
-            rows: [
-                AccountRow(id: "stripe", title: "Stripe", value: stripeValue(account.stripe))
-            ]
-        )
+    private static func payoutsSection(_ account: SignedInAccount, money: StripeMoneyLabels) -> AccountSection {
+        var rows = [
+            AccountRow(id: "stripe", title: "Stripe", value: stripeValue(account.stripe))
+        ]
+        if account.stripe.balance != nil {
+            if let available = money.available {
+                rows.append(AccountRow(id: "balance", title: "Available", value: available))
+            }
+            if let pending = money.pendingAmount {
+                rows.append(AccountRow(id: "pending", title: "Pending", value: pending))
+            }
+        }
+        return AccountSection(id: "payouts", title: "Payouts", rows: rows)
     }
 
     private static func browserSection(_ account: SignedInAccount) -> AccountSection {
@@ -87,6 +95,52 @@ enum AccountProfileBuilder {
                 AccountRow(id: "version", title: "Version", value: "1.0")
             ]
         )
+    }
+
+    private struct StripeMoneyLabels {
+        var available: String?
+        var pendingAmount: String?
+        var pendingCaption: String?
+    }
+
+    private static func stripeMoney(_ stripe: StripeProvision) -> StripeMoneyLabels {
+        guard stripe.hasAccount else {
+            return StripeMoneyLabels(available: "Not set up", pendingAmount: nil, pendingCaption: nil)
+        }
+        guard let balance = stripe.balance else {
+            return StripeMoneyLabels(available: "Unavailable", pendingAmount: nil, pendingCaption: nil)
+        }
+        let available = moneyLabel(balance.available)
+        let pendingRows = balance.pending.filter { $0.amount != 0 }
+        let pendingAmount = pendingRows.isEmpty ? nil : moneyLabel(pendingRows)
+        return StripeMoneyLabels(
+            available: available,
+            pendingAmount: pendingAmount,
+            pendingCaption: pendingAmount.map { "\($0) pending" }
+        )
+    }
+
+    private static func moneyLabel(_ rows: [StripeAmount]) -> String {
+        if rows.isEmpty {
+            return MoneyFormat.gbp(pence: 0)
+        }
+        return rows.map(amountLabel).joined(separator: " · ")
+    }
+
+    private static func amountLabel(_ amount: StripeAmount) -> String {
+        if amount.currency.lowercased() == "gbp" {
+            return MoneyFormat.gbp(pence: amount.amount)
+        }
+        let sign = amount.amount < 0 ? "-" : ""
+        let absolute = abs(amount.amount)
+        let major = absolute / 100
+        let remainder = absolute % 100
+        let code = amount.currency.uppercased()
+        if remainder == 0 {
+            return "\(sign)\(major) \(code)"
+        }
+        let remainderText = remainder < 10 ? "0\(remainder)" : "\(remainder)"
+        return "\(sign)\(major).\(remainderText) \(code)"
     }
 
     private static func stripeValue(_ stripe: StripeProvision) -> String {

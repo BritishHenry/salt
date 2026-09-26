@@ -87,8 +87,10 @@ struct SettingsSection: View {
             return "person.fill"
         case "email":
             return "envelope.fill"
-        case "currency":
+        case "currency", "balance":
             return "banknote"
+        case "pending":
+            return "clock"
         case "location":
             return "mappin"
         case "offers", "summary":
