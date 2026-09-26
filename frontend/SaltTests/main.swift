@@ -493,8 +493,51 @@ func testSignup() throws {
     expectEqual(profile.stripePendingLabel, "£4 pending", "pending caption")
     let browser = profile.sections.first { $0.id == "browser" }?.rows.first
     expectEqual(browser?.value ?? "", "Ready", "browser ready")
-    let markets = profile.sections.first { $0.id == "marketplaces" }?.rows ?? []
-    expectEqual(markets.map(\.value), ["Not connected", "Not connected", "Not connected"], "shops not signed in yet")
+    expectTrue(account.marketplaces.isEmpty, "signup without shops")
+    let markets = profile.sections.first { $0.id == "marketplaces" }
+    expectEqual(markets?.note, "Salt connects these shops.", "markets caption")
+    expectEqual(
+        markets?.rows.map(\.value) ?? [],
+        ["Not connected", "Not connected", "Not connected"],
+        "missing marketplaces stay not connected"
+    )
+
+    let shops = """
+    {"token":"tok_shops","user":{"id":7,"email":"ada@example.com","display_name":"Ada"},"stripe":{"seller_id":3,"stripe_account_id":"acct_123","transfers_status":"active"},"browser_profile":{"status":"ready","profile_id":"prof_1"},"marketplaces":[{"marketplace":"ebay","status":"failed","external_username":"","error":"eBay showed a captcha. Ask the seller to try again later."},{"marketplace":"depop","status":"needs_login","external_username":"","error":"Ask the seller for their Depop password, then call willow again."},{"marketplace":"vinted","status":"connected","external_username":"ada-shop","error":""},{"marketplace":"facebook","status":"connected","external_username":"other","error":""}]}
+    """
+    let shopAccount = try AccountExchange.decodeSignedIn(
+        HTTPResponse(statusCode: 200, data: Data(shops.utf8)),
+        keepingToken: nil
+    )
+    let shopProfile = AccountProfileBuilder.profile(for: shopAccount)
+    let shopRows = shopProfile.sections.first { $0.id == "marketplaces" }?.rows ?? []
+    expectEqual(shopRows.map(\.id), ["vinted", "depop", "ebay"], "shop order")
+    expectEqual(
+        shopRows.map(\.value),
+        ["Connected as ada-shop", "Needs login", "Failed"],
+        "live shop status"
+    )
+    expectTrue(shopProfile.statusNote == nil, "shop errors stay out of the note")
+
+    let unknown = SignedInAccount(
+        token: "tok_unknown",
+        user: shopAccount.user,
+        stripe: shopAccount.stripe,
+        browserProfile: shopAccount.browserProfile,
+        marketplaces: [
+            MarketplaceLink(marketplace: "vinted", status: "weird", externalUsername: "ada-shop", error: "ignore"),
+            MarketplaceLink(marketplace: "depop", status: "connected", externalUsername: "  ", error: "ignore"),
+            MarketplaceLink(marketplace: "ebay", status: "needs_login", externalUsername: "", error: "ignore"),
+            MarketplaceLink(marketplace: "facebook", status: "failed", externalUsername: "other", error: "ignore")
+        ]
+    )
+    let unknownRows = AccountProfileBuilder.profile(for: unknown).sections.first { $0.id == "marketplaces" }?.rows ?? []
+    expectEqual(unknownRows.map(\.id), ["vinted", "depop", "ebay"], "unknown slug adds no row")
+    expectEqual(
+        unknownRows.map(\.value),
+        ["Not connected", "Connected", "Needs login"],
+        "unknown status stays not connected"
+    )
 
     let failedStripe = """
     {"token":"tok_2","user":{"id":7,"email":"ada@example.com","display_name":"Ada"},"stripe":{"status":"failed","error":"Stripe is down."},"browser_profile":{"status":"ready","profile_id":"prof_1"}}

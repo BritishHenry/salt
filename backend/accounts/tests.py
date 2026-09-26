@@ -114,6 +114,28 @@ class AccountApiTests(TestCase):
         )
         self.assertEqual(payload["browser_profile"]["status"], "ready")
         self.assertEqual(payload["browser_profile"]["profile_id"], "prof_1")
+        self.assertEqual(
+            [
+                (
+                    row["marketplace"],
+                    row["status"],
+                    row["external_username"],
+                    row["error"],
+                )
+                for row in payload["marketplaces"]
+            ],
+            [
+                ("depop", "not_connected", "", ""),
+                ("ebay", "not_connected", "", ""),
+                ("vinted", "not_connected", "", ""),
+            ],
+        )
+        self.assertTrue(
+            all(
+                row["connected_at"] is None and row["last_checked_at"] is None
+                for row in payload["marketplaces"]
+            )
+        )
         self.assertEqual(self.browser.created[0].user_id, str(user.pk))
         self.create_account.assert_called_once()
         encoded = json.dumps(payload)
@@ -187,6 +209,33 @@ class AccountApiTests(TestCase):
             HTTP_AUTHORIZATION=f"Bearer {second}",
         )
         self.assertEqual(rejected.status_code, 401)
+
+    def test_me_returns_a_connected_marketplace(self):
+        token = self.signup().json()["token"]
+        user = User.objects.get(email="ada@example.com")
+        connection = user.marketplace_connections.get(marketplace="vinted")
+        connection.status = MarketplaceConnection.Status.CONNECTED
+        connection.external_username = "ada-shop"
+        connection.error = ""
+        connection.save()
+
+        response = self.client.get(
+            "/api/accounts/me/",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        vinted = next(
+            row for row in payload["marketplaces"] if row["marketplace"] == "vinted"
+        )
+        self.assertEqual(vinted["status"], "connected")
+        self.assertEqual(vinted["external_username"], "ada-shop")
+        self.assertEqual(vinted["error"], "")
+        encoded = json.dumps(payload)
+        self.assertNotIn("vinted_password", encoded)
+        self.assertNotIn("depop_password", encoded)
+        self.assertNotIn("ebay_password", encoded)
 
     def test_payments_connect_accepts_an_accounts_token(self):
         token = self.signup().json()["token"]
