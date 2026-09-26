@@ -7,6 +7,7 @@ from payments.attribution import (
     normalize_external_sale_id,
     normalize_marketplace,
 )
+from listings.models import Item, Listing
 from payments.models import BalanceTransfer, FundAuthorization, MarketplaceSale, Seller
 from payments.stripe_api import (
     StripeCallError,
@@ -52,21 +53,38 @@ def sync_seller(seller):
     return seller
 
 
-def record_sale(*, seller, marketplace, external_sale_id, amount_minor):
+def record_sale(
+    *, seller, marketplace, external_sale_id, amount_minor, listing=None
+):
     try:
         marketplace = normalize_marketplace(marketplace)
         external_sale_id = normalize_external_sale_id(external_sale_id)
         amount_minor = normalize_amount(amount_minor)
     except AttributionError as exc:
         raise PaymentError(str(exc)) from exc
+    if listing is not None:
+        if listing.item.user_id != seller.user_id:
+            raise PaymentError("Listing does not belong to this seller.")
+        if listing.marketplace != marketplace:
+            raise PaymentError("Listing marketplace does not match the sale.")
     try:
-        return MarketplaceSale.objects.create(
-            seller=seller,
-            marketplace=marketplace,
-            external_sale_id=external_sale_id,
-            amount_minor=amount_minor,
-            currency="gbp",
-        )
+        with transaction.atomic():
+            if listing is not None:
+                item = Item.objects.select_for_update().get(pk=listing.item_id)
+                listing = item.listings.select_for_update().get(pk=listing.pk)
+            sale = MarketplaceSale.objects.create(
+                seller=seller,
+                listing=listing,
+                marketplace=marketplace,
+                external_sale_id=external_sale_id,
+                amount_minor=amount_minor,
+                currency="gbp",
+            )
+            if listing is not None:
+                listing.mark_sold()
+            return sale
+    except (Item.DoesNotExist, Listing.DoesNotExist) as exc:
+        raise PaymentError("Listing not found.", status=404) from exc
     except IntegrityError as exc:
         raise PaymentError(
             "A sale with this marketplace id is already recorded.", status=409
