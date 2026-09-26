@@ -1,7 +1,7 @@
 import Foundation
 
-/// Read seams for the three tabs. v1 uses the mock types in `Mock`.
-/// A backend client can conform to these without changing the screens.
+/// Read seams for the three tabs. Chat and wardrobe still use the mock types.
+/// A signed-in account loads its profile from `SignedInAccountDataSource`.
 protocol ChatDataSource {
     var agentName: String { get }
     var suggestions: [String] { get }

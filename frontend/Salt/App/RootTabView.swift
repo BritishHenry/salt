@@ -2,10 +2,12 @@ import SwiftUI
 
 struct RootTabView: View {
     private let dependencies: AppDependencies
+    private let session: SessionController?
     @State private var selection: AppTab = .home
 
-    init(dependencies: AppDependencies = .live) {
+    init(dependencies: AppDependencies = .live, session: SessionController? = nil) {
         self.dependencies = dependencies
+        self.session = session
         SaltAppearance.apply()
     }
 
@@ -29,7 +31,7 @@ struct RootTabView: View {
                     }
                 }
                 .tag(AppTab.wardrobe)
-            AccountView(dataSource: dependencies.account)
+            accountTab
                 .tabItem {
                     Label {
                         Text(AppTab.account.title)
@@ -41,6 +43,15 @@ struct RootTabView: View {
         }
         .tint(SaltColor.primary)
         .preferredColorScheme(.light)
+    }
+
+    @ViewBuilder
+    private var accountTab: some View {
+        if let session {
+            AccountView(session: session)
+        } else {
+            AccountView(dataSource: dependencies.account)
+        }
     }
 }
 

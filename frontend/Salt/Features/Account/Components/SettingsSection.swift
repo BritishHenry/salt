@@ -95,6 +95,10 @@ struct SettingsSection: View {
             return "bell.fill"
         case "version":
             return "info.circle.fill"
+        case "stripe":
+            return "creditcard.fill"
+        case "browser":
+            return "safari.fill"
         default:
             return "circle.fill"
         }

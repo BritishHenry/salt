@@ -52,6 +52,17 @@
 		00000000B100000000000054 /* WardrobeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000053 /* WardrobeView.swift */; };
 		00000000B100000000000056 /* WardrobeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000055 /* WardrobeViewModel.swift */; };
 		00000000B100000000000058 /* SaltApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000057 /* SaltApp.swift */; };
+		00000000B10000000000006A /* SignedInAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000069 /* SignedInAccount.swift */; };
+		00000000B10000000000006C /* SignupForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000006B /* SignupForm.swift */; };
+		00000000B10000000000006E /* AccountProfileBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000006D /* AccountProfileBuilder.swift */; };
+		00000000B100000000000070 /* AccountClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000006F /* AccountClient.swift */; };
+		00000000B100000000000072 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000071 /* SessionStore.swift */; };
+		00000000B100000000000074 /* SignedInAccountDataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000073 /* SignedInAccountDataSource.swift */; };
+		00000000B100000000000076 /* URLSessionHTTPTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000075 /* URLSessionHTTPTransport.swift */; };
+		00000000B100000000000078 /* SaltAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000077 /* SaltAPI.swift */; };
+		00000000B10000000000007A /* SessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B100000000000079 /* SessionController.swift */; };
+		00000000B10000000000007C /* AppGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000007B /* AppGate.swift */; };
+		00000000B10000000000007E /* SignupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000B10000000000007D /* SignupView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -101,6 +112,17 @@
 		00000000B100000000000053 /* WardrobeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeView.swift; sourceTree = "<group>"; };
 		00000000B100000000000055 /* WardrobeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeViewModel.swift; sourceTree = "<group>"; };
 		00000000B100000000000057 /* SaltApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltApp.swift; sourceTree = "<group>"; };
+		00000000B100000000000069 /* SignedInAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignedInAccount.swift; sourceTree = "<group>"; };
+		00000000B10000000000006B /* SignupForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignupForm.swift; sourceTree = "<group>"; };
+		00000000B10000000000006D /* AccountProfileBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountProfileBuilder.swift; sourceTree = "<group>"; };
+		00000000B10000000000006F /* AccountClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountClient.swift; sourceTree = "<group>"; };
+		00000000B100000000000071 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		00000000B100000000000073 /* SignedInAccountDataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignedInAccountDataSource.swift; sourceTree = "<group>"; };
+		00000000B100000000000075 /* URLSessionHTTPTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionHTTPTransport.swift; sourceTree = "<group>"; };
+		00000000B100000000000077 /* SaltAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaltAPI.swift; sourceTree = "<group>"; };
+		00000000B100000000000079 /* SessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionController.swift; sourceTree = "<group>"; };
+		00000000B10000000000007B /* AppGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGate.swift; sourceTree = "<group>"; };
+		00000000B10000000000007D /* SignupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignupView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -139,9 +161,13 @@
 			isa = PBXGroup;
 			children = (
 				00000000B100000000000001 /* AppDependencies.swift */,
+				00000000B10000000000007B /* AppGate.swift */,
 				00000000B100000000000003 /* AppTab.swift */,
 				00000000B100000000000005 /* RootTabView.swift */,
+				00000000B100000000000077 /* SaltAPI.swift */,
 				00000000B100000000000007 /* SaltAppearance.swift */,
+				00000000B100000000000079 /* SessionController.swift */,
+				00000000B100000000000075 /* URLSessionHTTPTransport.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -160,7 +186,10 @@
 		00000000B10000000000005C /* Data */ = {
 			isa = PBXGroup;
 			children = (
+				00000000B10000000000006F /* AccountClient.swift */,
 				00000000B100000000000009 /* DataSources.swift */,
+				00000000B100000000000071 /* SessionStore.swift */,
+				00000000B100000000000073 /* SignedInAccountDataSource.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -168,8 +197,10 @@
 		00000000B10000000000005D /* Logic */ = {
 			isa = PBXGroup;
 			children = (
+				00000000B10000000000006D /* AccountProfileBuilder.swift */,
 				00000000B10000000000000B /* ListPhrase.swift */,
 				00000000B10000000000000D /* MoneyFormat.swift */,
+				00000000B10000000000006B /* SignupForm.swift */,
 				00000000B10000000000000F /* WardrobeFilter.swift */,
 				00000000B100000000000011 /* WardrobeInsights.swift */,
 			);
@@ -195,6 +226,7 @@
 			children = (
 				00000000B100000000000021 /* AccountProfile.swift */,
 				00000000B100000000000023 /* ChatMessage.swift */,
+				00000000B100000000000069 /* SignedInAccount.swift */,
 				00000000B100000000000025 /* GarmentKind.swift */,
 				00000000B100000000000027 /* Marketplace.swift */,
 				00000000B100000000000029 /* WardrobeItem.swift */,
@@ -228,6 +260,7 @@
 			isa = PBXGroup;
 			children = (
 				00000000B100000000000063 /* Account */,
+				00000000B100000000000080 /* Auth */,
 				00000000B100000000000065 /* Home */,
 				00000000B100000000000067 /* Wardrobe */,
 			);
@@ -250,6 +283,14 @@
 				00000000B10000000000003D /* SettingsSection.swift */,
 			);
 			path = Components;
+			sourceTree = "<group>";
+		};
+		00000000B100000000000080 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				00000000B10000000000007D /* SignupView.swift */,
+			);
+			path = Auth;
 			sourceTree = "<group>";
 		};
 		00000000B100000000000065 /* Home */ = {
@@ -415,6 +456,17 @@
 				00000000B100000000000054 /* WardrobeView.swift in Sources */,
 				00000000B100000000000056 /* WardrobeViewModel.swift in Sources */,
 				00000000B100000000000058 /* SaltApp.swift in Sources */,
+				00000000B10000000000006A /* SignedInAccount.swift in Sources */,
+				00000000B10000000000006C /* SignupForm.swift in Sources */,
+				00000000B10000000000006E /* AccountProfileBuilder.swift in Sources */,
+				00000000B100000000000070 /* AccountClient.swift in Sources */,
+				00000000B100000000000072 /* SessionStore.swift in Sources */,
+				00000000B100000000000074 /* SignedInAccountDataSource.swift in Sources */,
+				00000000B100000000000076 /* URLSessionHTTPTransport.swift in Sources */,
+				00000000B100000000000078 /* SaltAPI.swift in Sources */,
+				00000000B10000000000007A /* SessionController.swift in Sources */,
+				00000000B10000000000007C /* AppGate.swift in Sources */,
+				00000000B10000000000007E /* SignupView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -476,6 +528,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Salt/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Salt uses the camera to photograph items you want to list.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Salt uses your photos to attach images to listings.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -504,6 +557,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Salt/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Salt uses the camera to photograph items you want to list.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Salt uses your photos to attach images to listings.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

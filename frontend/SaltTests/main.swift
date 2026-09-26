@@ -339,6 +339,196 @@ func testTranscriptAndSources() throws {
     expectEqual(version, "1.0", "version")
 }
 
+final class ScriptedTransport: HTTPTransport, @unchecked Sendable {
+    var requests: [URLRequest] = []
+    var response: HTTPResponse
+
+    init(response: HTTPResponse) {
+        self.response = response
+    }
+
+    func send(_ request: URLRequest) throws -> HTTPResponse {
+        requests.append(request)
+        return response
+    }
+}
+
+func signupFixture(token: String = "tok_1", includeToken: Bool = true) -> Data {
+    let tokenField = includeToken ? "\"token\": \"\(token)\"," : ""
+    let json = """
+    {
+      \(tokenField)
+      "user": {"id": 7, "email": "ada@example.com", "display_name": "Ada"},
+      "stripe": {
+        "seller_id": 3,
+        "stripe_account_id": "acct_123",
+        "transfers_status": "pending",
+        "onboarding_url": "https://stripe.test/onboard"
+      },
+      "browser_profile": {"status": "ready", "profile_id": "prof_1"}
+    }
+    """
+    return Data(json.utf8)
+}
+
+func bodyObject(_ request: URLRequest) throws -> [String: String] {
+    let data = try request.httpBody ?? Data()
+    let object = try JSONSerialization.jsonObject(with: data)
+    return object as? [String: String] ?? [:]
+}
+
+func testSignup() throws {
+    expectEqual(
+        SignupForm.signupIssue(displayName: "  ", email: "ada@example.com", password: "secret") ?? "",
+        "Add the name you sell under.",
+        "blank name"
+    )
+    expectEqual(
+        SignupForm.signupIssue(displayName: String(repeating: "a", count: 256), email: "ada@example.com", password: "secret") ?? "",
+        "That name is too long.",
+        "long name"
+    )
+    expectEqual(
+        SignupForm.signupIssue(displayName: "Ada", email: "not-an-email", password: "secret") ?? "",
+        "Enter a valid email address.",
+        "bad email"
+    )
+    expectEqual(
+        SignupForm.signupIssue(displayName: "Ada", email: "ada@example.com", password: "") ?? "",
+        "Choose a password.",
+        "blank password"
+    )
+    expectTrue(
+        SignupForm.signupIssue(displayName: " Ada ", email: " Ada@Example.com ", password: "secret") == nil,
+        "valid signup"
+    )
+    expectEqual(SignupForm.normalizedEmail(" Ada@Example.com "), "ada@example.com", "email normalized")
+    expectEqual(
+        SignupForm.loginIssue(email: "ada@example.com", password: "") ?? "",
+        "Enter your password.",
+        "login password"
+    )
+    expectEqual(
+        SaltAPIConfiguration.baseURL(infoValue: nil).absoluteString,
+        "http://127.0.0.1:8000",
+        "default api"
+    )
+    expectEqual(
+        SaltAPIConfiguration.baseURL(infoValue: "http://10.0.0.8:8000").absoluteString,
+        "http://10.0.0.8:8000",
+        "plist api"
+    )
+    expectEqual(
+        try AccountExchange.url(baseURL: URL(string: "http://127.0.0.1:8000/")!, path: "api/accounts/signup/").absoluteString,
+        "http://127.0.0.1:8000/api/accounts/signup/",
+        "signup url"
+    )
+
+    let transport = ScriptedTransport(response: HTTPResponse(statusCode: 201, data: signupFixture()))
+    let client = HTTPAccountClient(baseURL: URL(string: "http://127.0.0.1:8000")!, transport: transport)
+    let account = try client.signUp(displayName: " Ada ", email: "Ada@Example.com", password: "b3tt3r-pass-phrase")
+    let request = transport.requests[0]
+    expectEqual(request.httpMethod ?? "", "POST", "signup method")
+    expectEqual(request.url?.absoluteString, "http://127.0.0.1:8000/api/accounts/signup/", "signup path")
+    expectEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json", "signup content type")
+    expectTrue(request.value(forHTTPHeaderField: "Authorization") == nil, "signup has no token yet")
+    let body = try bodyObject(request)
+    expectEqual(body["email"] ?? "", "ada@example.com", "signup email")
+    expectEqual(body["display_name"] ?? "", "Ada", "signup name")
+    expectEqual(body["password"] ?? "", "b3tt3r-pass-phrase", "signup password")
+    expectEqual(account.token, "tok_1", "signup token")
+    expectEqual(account.user.id, 7, "signup user")
+    expectEqual(account.stripe.stripeAccountId, "acct_123", "stripe account")
+    expectEqual(account.stripe.onboardingUrl, "https://stripe.test/onboard", "stripe link")
+    expectEqual(account.browserProfile.profileId, "prof_1", "browser profile")
+
+    let profile = SignedInAccountDataSource(account: account).loadProfile()
+    expectEqual(profile.displayName, "Ada", "signed in name")
+    expectEqual(profile.email, "ada@example.com", "signed in email")
+    expectEqual(profile.memberSinceLabel, "Payouts and browser are ready", "both ready")
+    expectEqual(profile.stripeOnboardingURL, "https://stripe.test/onboard", "profile link")
+    expectTrue(!profile.needsProvisionRetry, "no retry when both exist")
+    expectTrue(profile.statusNote == nil, "no note when setup worked")
+    let payouts = profile.sections.first { $0.id == "payouts" }?.rows.first
+    expectEqual(payouts?.value ?? "", "Finish setup", "stripe pending")
+    let browser = profile.sections.first { $0.id == "browser" }?.rows.first
+    expectEqual(browser?.value ?? "", "Ready", "browser ready")
+    let markets = profile.sections.first { $0.id == "marketplaces" }?.rows ?? []
+    expectEqual(markets.map(\.value), ["Not connected", "Not connected", "Not connected"], "shops not signed in yet")
+
+    let failedStripe = """
+    {"token":"tok_2","user":{"id":7,"email":"ada@example.com","display_name":"Ada"},"stripe":{"status":"failed","error":"Stripe is down."},"browser_profile":{"status":"ready","profile_id":"prof_1"}}
+    """
+    let failed = try AccountExchange.decodeSignedIn(
+        HTTPResponse(statusCode: 201, data: Data(failedStripe.utf8)),
+        keepingToken: nil
+    )
+    let failedProfile = AccountProfileBuilder.profile(for: failed)
+    expectEqual(failedProfile.memberSinceLabel, "Browser is ready. Payouts still need a moment", "stripe failed label")
+    expectTrue(failedProfile.needsProvisionRetry, "retry after stripe failure")
+    expectEqual(failedProfile.statusNote, "Stripe is down.", "stripe error note")
+    expectEqual(
+        failedProfile.sections.first { $0.id == "payouts" }?.rows.first?.value ?? "",
+        "Not set up",
+        "stripe missing"
+    )
+
+    let duplicate = HTTPResponse(
+        statusCode: 409,
+        data: Data("{\"error\":\"An account with this email already exists.\"}".utf8)
+    )
+    do {
+        _ = try AccountExchange.decodeSignedIn(duplicate, keepingToken: nil)
+        expectTrue(false, "duplicate should fail")
+    } catch let error as AccountAPIError {
+        expectEqual(error.message, "An account with this email already exists.", "duplicate message")
+        expectEqual(error.statusCode ?? 0, 409, "duplicate status")
+    }
+
+    let provisionTransport = ScriptedTransport(
+        response: HTTPResponse(statusCode: 200, data: signupFixture(includeToken: false))
+    )
+    let provisioned = try HTTPAccountClient(
+        baseURL: URL(string: "http://127.0.0.1:8000/")!,
+        transport: provisionTransport
+    ).provision(token: "tok_existing")
+    let provisionRequest = provisionTransport.requests[0]
+    expectEqual(provisionRequest.url?.absoluteString, "http://127.0.0.1:8000/api/accounts/provision/", "provision path")
+    expectEqual(provisionRequest.value(forHTTPHeaderField: "Authorization"), "Bearer tok_existing", "provision auth")
+    expectTrue(provisionRequest.httpBody == nil, "provision has no body")
+    expectEqual(provisioned.token, "tok_existing", "provision keeps token")
+    expectEqual(provisioned.stripe.stripeAccountId, "acct_123", "provision retries stripe")
+
+    let logoutTransport = ScriptedTransport(response: HTTPResponse(statusCode: 204, data: Data()))
+    try HTTPAccountClient(baseURL: SaltAPIConfiguration.defaultBaseURL, transport: logoutTransport)
+        .logOut(token: "tok_1")
+    expectEqual(logoutTransport.requests[0].httpMethod ?? "", "POST", "logout method")
+    expectEqual(
+        logoutTransport.requests[0].url?.absoluteString,
+        "http://127.0.0.1:8000/api/accounts/logout/",
+        "logout path"
+    )
+
+    let memory = MemorySessionStore()
+    expectTrue(memory.load() == nil, "empty memory session")
+    memory.save(account)
+    expectEqual(memory.load(), Optional(account), "memory session round trip")
+    memory.clear()
+    expectTrue(memory.load() == nil, "memory session cleared")
+
+    let suite = "salt.signup.tests"
+    if let defaults = UserDefaults(suiteName: suite) {
+        defaults.removePersistentDomain(forName: suite)
+        let store = UserDefaultsSessionStore(defaults: defaults)
+        expectTrue(store.load() == nil, "empty session")
+        store.save(account)
+        expectEqual(store.load(), Optional(account), "session round trip")
+        store.clear()
+        expectTrue(store.load() == nil, "session cleared")
+        defaults.removePersistentDomain(forName: suite)
+    }
+}
+
 func itemDescription(_ items: [WardrobeItem], id: String) -> String {
     items.first { $0.id == id }?.listingDescription ?? ""
 }
@@ -349,6 +539,7 @@ do {
     testInsights()
     testResponder()
     try testTranscriptAndSources()
+    try testSignup()
 } catch {
     fputs("FAIL \(error)\n", stderr)
     exit(1)
