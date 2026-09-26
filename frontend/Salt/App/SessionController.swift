@@ -57,9 +57,11 @@ final class SessionController: ObservableObject {
             let updated = try await Self.offMain {
                 try client.currentAccount(token: token)
             }
+            guard account?.token == token else { return }
             store.save(updated)
             account = updated
         } catch let error as AccountAPIError where error.statusCode == 401 {
+            guard account?.token == token else { return }
             store.clear()
             account = nil
         } catch {
