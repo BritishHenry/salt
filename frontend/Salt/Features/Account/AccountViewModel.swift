@@ -48,4 +48,9 @@ final class AccountViewModel: ObservableObject {
         guard let session else { return }
         Task { await session.logOut() }
     }
+
+    func refresh() async {
+        guard let session else { return }
+        await session.refresh()
+    }
 }

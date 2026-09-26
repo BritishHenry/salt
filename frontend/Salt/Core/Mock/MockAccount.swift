@@ -38,6 +38,8 @@ enum MockAccount {
                     AccountRow(id: "version", title: "Version", value: "1.0")
                 ]
             )
-        ]
+        ],
+        stripeAvailableLabel: "£128",
+        stripePendingLabel: "£24 pending"
     )
 }

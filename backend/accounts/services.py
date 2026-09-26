@@ -9,7 +9,7 @@ from django.db import IntegrityError, transaction
 from accounts.models import ApiToken, User
 from payments.models import Seller
 from payments.services import start_onboarding
-from payments.stripe_api import onboarding_link
+from payments.stripe_api import onboarding_link, retrieve_account_balance
 from services.browser_use import BrowserUseClient
 
 
@@ -216,21 +216,23 @@ def _stripe_payload(user):
             "status": "failed",
             "error": user.stripe_provision_error or "Stripe account has not been created.",
         }
-    try:
-        url = onboarding_link(seller.stripe_account_id, seller.pk)
-    except Exception as exc:
-        return {
-            "seller_id": seller.pk,
-            "stripe_account_id": seller.stripe_account_id,
-            "transfers_status": seller.transfers_status,
-            "error": _error_text(exc),
-        }
-    return {
+    payload = {
         "seller_id": seller.pk,
         "stripe_account_id": seller.stripe_account_id,
         "transfers_status": seller.transfers_status,
-        "onboarding_url": url,
     }
+    errors = []
+    try:
+        payload["onboarding_url"] = onboarding_link(seller.stripe_account_id, seller.pk)
+    except Exception as exc:
+        errors.append(_error_text(exc))
+    try:
+        payload["balance"] = retrieve_account_balance(seller.stripe_account_id)
+    except Exception as exc:
+        errors.append(_error_text(exc))
+    if errors:
+        payload["error"] = " ".join(error for error in errors if error)
+    return payload
 
 
 def _browser_payload(user):
