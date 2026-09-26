@@ -1,5 +1,5 @@
-"""Cross-marketplace delisting.
+"""Marketplace publisher.
 
-Watches live listings for a sale on any marketplace, removes the matching
-listings on the others, and tells Salt when a removal fails.
+Publishes an approved listing, checks its status, applies an update, and
+removes the other marketplace listings when an item sells.
 """

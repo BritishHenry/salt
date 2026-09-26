@@ -360,6 +360,8 @@ func testTranscriptAndSources() throws {
     let profile = MockAccountDataSource().loadProfile()
     expectEqual(profile.displayName, "Claire Bennett", "account name")
     expectEqual(profile.email, "claire.bennett@example.com", "account email")
+    expectEqual(profile.stripeAvailableLabel, "£128", "mock stripe money")
+    expectEqual(profile.stripePendingLabel, "£24 pending", "mock pending money")
     expectEqual(profile.sections.map(\.title), ["Profile", "Marketplaces", "Preferences", "About"], "sections")
     let marketplaces = profile.sections.first { $0.id == "marketplaces" }?.rows ?? []
     expectEqual(marketplaces.map(\.title), ["Vinted", "Depop", "eBay"], "account markets")
@@ -392,7 +394,11 @@ func signupFixture(token: String = "tok_1", includeToken: Bool = true) -> Data {
         "seller_id": 3,
         "stripe_account_id": "acct_123",
         "transfers_status": "pending",
-        "onboarding_url": "https://stripe.test/onboard"
+        "onboarding_url": "https://stripe.test/onboard",
+        "balance": {
+          "available": [{"amount": 1250, "currency": "gbp"}],
+          "pending": [{"amount": 400, "currency": "gbp"}]
+        }
       },
       "browser_profile": {"status": "ready", "profile_id": "prof_1"}
     }
@@ -478,8 +484,13 @@ func testSignup() throws {
     expectEqual(profile.stripeOnboardingURL, "https://stripe.test/onboard", "profile link")
     expectTrue(!profile.needsProvisionRetry, "no retry when both exist")
     expectTrue(profile.statusNote == nil, "no note when setup worked")
-    let payouts = profile.sections.first { $0.id == "payouts" }?.rows.first
-    expectEqual(payouts?.value ?? "", "Finish setup", "stripe pending")
+    let payouts = profile.sections.first { $0.id == "payouts" }?.rows ?? []
+    expectEqual(payouts.first?.value ?? "", "Finish setup", "stripe pending")
+    expectEqual(payouts.map(\.title), ["Stripe", "Available", "Pending"], "payout rows")
+    expectEqual(payouts.first { $0.id == "balance" }?.value ?? "", "£12.50", "stripe available")
+    expectEqual(payouts.first { $0.id == "pending" }?.value ?? "", "£4", "stripe pending amount")
+    expectEqual(profile.stripeAvailableLabel, "£12.50", "available label")
+    expectEqual(profile.stripePendingLabel, "£4 pending", "pending caption")
     let browser = profile.sections.first { $0.id == "browser" }?.rows.first
     expectEqual(browser?.value ?? "", "Ready", "browser ready")
     expectTrue(account.marketplaces.isEmpty, "signup without shops")
@@ -543,6 +554,43 @@ func testSignup() throws {
         failedProfile.sections.first { $0.id == "payouts" }?.rows.first?.value ?? "",
         "Not set up",
         "stripe missing"
+    )
+    expectEqual(failedProfile.stripeAvailableLabel, "Not set up", "no stripe money")
+    expectTrue(failedProfile.stripePendingLabel == nil, "no pending without stripe")
+
+    let missingBalance = """
+    {"token":"tok_3","user":{"id":7,"email":"ada@example.com","display_name":"Ada"},"stripe":{"seller_id":3,"stripe_account_id":"acct_123","transfers_status":"active"},"browser_profile":{"status":"ready","profile_id":"prof_1"}}
+    """
+    let missing = try AccountExchange.decodeSignedIn(
+        HTTPResponse(statusCode: 200, data: Data(missingBalance.utf8)),
+        keepingToken: nil
+    )
+    let missingProfile = AccountProfileBuilder.profile(for: missing)
+    expectEqual(missingProfile.stripeAvailableLabel, "Unavailable", "balance missing")
+    expectTrue(missingProfile.stripePendingLabel == nil, "no pending without a balance")
+
+    let mixed = """
+    {"token":"tok_4","user":{"id":7,"email":"ada@example.com","display_name":"Ada"},"stripe":{"seller_id":3,"stripe_account_id":"acct_123","transfers_status":"active","balance":{"available":[{"amount":1250,"currency":"gbp"},{"amount":350,"currency":"usd"}],"pending":[{"amount":0,"currency":"gbp"}]}},"browser_profile":{"status":"ready","profile_id":"prof_1"}}
+    """
+    let mixedAccount = try AccountExchange.decodeSignedIn(
+        HTTPResponse(statusCode: 200, data: Data(mixed.utf8)),
+        keepingToken: nil
+    )
+    let mixedProfile = AccountProfileBuilder.profile(for: mixedAccount)
+    expectEqual(mixedProfile.stripeAvailableLabel, "£12.50 · 3.50 USD", "mixed currencies")
+    expectTrue(mixedProfile.stripePendingLabel == nil, "zero pending hidden")
+
+    let emptyBalance = """
+    {"token":"tok_5","user":{"id":7,"email":"ada@example.com","display_name":"Ada"},"stripe":{"seller_id":3,"stripe_account_id":"acct_123","transfers_status":"active","balance":{"available":[],"pending":[]}},"browser_profile":{"status":"ready","profile_id":"prof_1"}}
+    """
+    let emptyAccount = try AccountExchange.decodeSignedIn(
+        HTTPResponse(statusCode: 200, data: Data(emptyBalance.utf8)),
+        keepingToken: nil
+    )
+    expectEqual(
+        AccountProfileBuilder.profile(for: emptyAccount).stripeAvailableLabel,
+        "£0",
+        "empty balance"
     )
 
     let duplicate = HTTPResponse(

@@ -101,6 +101,28 @@ class UrllibTransport:
         self._max_retries = max_retries
         self._opener = opener or urlopen
 
+    def put_bytes(self, url, data, content_type):
+        """PUT file bytes to a presigned URL. The API key is not sent."""
+        if not isinstance(url, str) or not url.startswith("https://"):
+            raise BrowserUseError("Upload URL must use https.")
+        if not isinstance(data, (bytes, bytearray)) or len(data) < 1:
+            raise ValueError("file data must be non-empty bytes")
+        headers = {
+            "Content-Type": content_type or "application/octet-stream",
+            "Content-Length": str(len(data)),
+        }
+        request = Request(url, data=bytes(data), headers=headers, method="PUT")
+        try:
+            with self._opener(request, timeout=self._timeout) as response:
+                response.read()
+        except HTTPError as exc:
+            body = _parse_body(exc.read())
+            raise BrowserUseAPIError(
+                exc.code, detail_text(body) or "upload failed", body=body
+            ) from exc
+        except URLError as exc:
+            raise BrowserUseError(f"Browser Use upload failed: {exc.reason}") from exc
+
     def request(self, method, path, *, json_body=None, query=None):
         url = self._base_url + path
         if query:

@@ -1,6 +1,7 @@
 """Tools Salt calls. Each one has a Grok Responses schema, a handler, and a presenter."""
 
 from agents.bobby.tool import bobby_schema, handle_bobby, present_bobby
+from agents.maggie.tool import handle_maggie, maggie_schema, present_maggie
 from agents.willow.tool import handle_willow, willow_schema
 
 
@@ -83,4 +84,5 @@ def _result(marketplace, status, external_username, message):
 TOOLS = {
     "willow": Tool("willow", willow_schema(), handle_willow, _clean),
     "bobby": Tool("bobby", bobby_schema(), handle_bobby, present_bobby),
+    "maggie": Tool("maggie", maggie_schema(), handle_maggie, present_maggie),
 }

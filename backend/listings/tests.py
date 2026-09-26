@@ -2,8 +2,10 @@ from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.utils import timezone
 
 from listings.models import Item, ItemPhoto, Listing
+from listings.services import listing_payload
 from payments.models import MarketplaceSale, Seller
 from payments.services import PaymentError, record_sale
 
@@ -55,6 +57,29 @@ class ListingConstraintTests(TestCase):
                     ),
                     position=0,
                 )
+
+
+class ListingPayloadTests(TestCase):
+    def test_payload_includes_marketplace_sync_fields(self):
+        user = make_user("payload")
+        item = Item.objects.create(user=user, title="Coat")
+        synced = timezone.now()
+        listing = Listing.objects.create(
+            item=item,
+            marketplace=Listing.Marketplace.VINTED,
+            external_id="abc",
+            external_url="https://www.vinted.co.uk/items/1",
+            listed_at=synced,
+            last_synced_at=synced,
+            sync_error="",
+        )
+        payload = listing_payload(listing)
+        self.assertEqual(payload["external_id"], "abc")
+        self.assertEqual(payload["external_url"], "https://www.vinted.co.uk/items/1")
+        self.assertEqual(payload["sync_error"], "")
+        self.assertEqual(payload["listed_at"], synced.isoformat())
+        self.assertEqual(payload["last_synced_at"], synced.isoformat())
+        self.assertIsNone(payload["ended_at"])
 
 
 class RecordSaleListingTests(TestCase):

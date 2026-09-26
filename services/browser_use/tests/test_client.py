@@ -16,6 +16,7 @@ from services.browser_use import BrowserUseClient
 from services.browser_use.errors import (
     BrowserUseAPIError,
     BrowserUseConfigError,
+    BrowserUseError,
     BrowserUseRunFailed,
     BrowserUseTimeout,
     MessageNotDispatched,
@@ -42,6 +43,10 @@ class FakeTransport:
     def __init__(self, responses):
         self.responses = list(responses)
         self.calls = []
+        self.uploads = []
+
+    def put_bytes(self, url, data, content_type):
+        self.uploads.append({"url": url, "data": data, "content_type": content_type})
 
     def request(self, method, path, *, json_body=None, query=None):
         self.calls.append(
@@ -531,6 +536,125 @@ class SecretBindingTests(unittest.TestCase):
                 secret_bindings=[Secret.inline("vinted_password", "s3cret", ["vinted.co.uk"])],
             )
         self.assertEqual(transport.calls, [])
+
+
+FILE_ID = "66666666-6666-6666-6666-666666666666"
+
+
+class WorkspaceTests(unittest.TestCase):
+    def test_creates_a_named_workspace(self):
+        browser, transport, _clock = client(
+            [
+                {
+                    "id": WORKSPACE_ID,
+                    "name": "photos",
+                    "archived": False,
+                    "createdAt": "2026-09-26T00:00:00Z",
+                    "updatedAt": "2026-09-26T00:00:00Z",
+                }
+            ]
+        )
+        workspace = browser.create_workspace(name="photos")
+        self.assertEqual(workspace.id, WORKSPACE_ID)
+        self.assertEqual(transport.calls[0]["path"], "/workspaces")
+        self.assertEqual(transport.calls[0]["json"], {"name": "photos"})
+
+    def test_create_omits_a_blank_workspace_name(self):
+        browser, transport, _clock = client(
+            [
+                {
+                    "id": WORKSPACE_ID,
+                    "name": None,
+                    "archived": False,
+                    "createdAt": "2026-09-26T00:00:00Z",
+                    "updatedAt": "2026-09-26T00:00:00Z",
+                }
+            ]
+        )
+        browser.create_workspace(name="  ")
+        self.assertEqual(transport.calls[0]["json"], {})
+
+    def test_upload_presigns_then_puts_the_bytes(self):
+        browser, transport, _clock = client(
+            [
+                {
+                    "files": [
+                        {
+                            "id": FILE_ID,
+                            "name": "coat.jpg",
+                            "storedName": "coat.jpg",
+                            "path": "uploads/coat.jpg",
+                            "willOverride": False,
+                            "uploadUrl": "https://uploads.example/coat.jpg",
+                        }
+                    ]
+                }
+            ]
+        )
+        uploads = browser.upload_workspace_files(
+            WORKSPACE_ID,
+            [{"name": "coat.jpg", "data": b"jpeg-bytes", "content_type": "image/jpeg"}],
+        )
+        self.assertEqual(uploads[0].id, FILE_ID)
+        self.assertEqual(
+            transport.calls[0],
+            {
+                "method": "POST",
+                "path": f"/workspaces/{WORKSPACE_ID}/files/upload",
+                "json": {
+                    "files": [
+                        {"name": "coat.jpg", "size": 10, "contentType": "image/jpeg"}
+                    ]
+                },
+                "query": None,
+            },
+        )
+        self.assertEqual(
+            transport.uploads,
+            [
+                {
+                    "url": "https://uploads.example/coat.jpg",
+                    "data": b"jpeg-bytes",
+                    "content_type": "image/jpeg",
+                }
+            ],
+        )
+
+    def test_empty_file_is_rejected_before_a_request(self):
+        browser, transport, _clock = client([])
+        with self.assertRaises(ValueError):
+            browser.upload_workspace_files(
+                WORKSPACE_ID,
+                [{"name": "coat.jpg", "data": b"", "content_type": "image/jpeg"}],
+            )
+        self.assertEqual(transport.calls, [])
+        self.assertEqual(transport.uploads, [])
+
+
+class UploadTransportTests(unittest.TestCase):
+    def test_put_bytes_uses_https_and_omits_the_api_key(self):
+        seen = {}
+
+        def opener(request, timeout=None):
+            seen["url"] = request.full_url
+            seen["method"] = request.method
+            seen["data"] = request.data
+            seen["headers"] = {key.lower(): value for key, value in request.header_items()}
+            return _response(b"")
+
+        transport = UrllibTransport("bu_test_key", opener=opener)
+        transport.put_bytes("https://uploads.example/coat.jpg", b"jpeg-bytes", "image/jpeg")
+        self.assertEqual(seen["url"], "https://uploads.example/coat.jpg")
+        self.assertEqual(seen["method"], "PUT")
+        self.assertEqual(seen["data"], b"jpeg-bytes")
+        self.assertEqual(seen["headers"]["content-type"], "image/jpeg")
+        self.assertEqual(seen["headers"]["content-length"], "10")
+        self.assertNotIn("x-browser-use-api-key", seen["headers"])
+
+    def test_put_bytes_rejects_a_non_https_url(self):
+        transport = UrllibTransport("bu_test_key", opener=lambda *args, **kwargs: None)
+        with self.assertRaises(BrowserUseError):
+            transport.put_bytes("http://uploads.example/coat.jpg", b"jpeg-bytes", "image/jpeg")
 
 
 def _response(body):

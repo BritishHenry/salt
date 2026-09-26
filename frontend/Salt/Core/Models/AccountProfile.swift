@@ -8,6 +8,10 @@ struct AccountProfile: Equatable, Codable, Hashable, Sendable {
     var stripeOnboardingURL: String? = nil
     var needsProvisionRetry: Bool = false
     var statusNote: String? = nil
+    /// Available money on the connected Stripe account, already formatted.
+    var stripeAvailableLabel: String? = nil
+    /// Pending money, formatted as a caption such as "£4 pending".
+    var stripePendingLabel: String? = nil
 }
 
 struct AccountSection: Identifiable, Equatable, Codable, Hashable, Sendable {

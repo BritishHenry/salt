@@ -3,6 +3,7 @@ import os
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import stripe
 from cryptography.fernet import Fernet
 from django.db import IntegrityError, transaction
 from django.test import TestCase
@@ -11,7 +12,12 @@ from accounts.models import ApiToken, MarketplaceConnection, User
 from accounts.secrets import marketplace_login_secret
 from accounts.services import AccountError
 from payments.models import Seller
-from payments.stripe_api import StripeCallError, create_recipient_account
+from payments.stripe_api import (
+    StripeCallError,
+    balance_amounts,
+    create_recipient_account,
+    retrieve_account_balance,
+)
 from services.browser_use.models import Profile, ProfilePage
 
 
@@ -61,6 +67,13 @@ class AccountApiTests(TestCase):
         patch(
             "accounts.services.onboarding_link", return_value=ONBOARDING_URL
         ).start()
+        self.balance = patch(
+            "accounts.services.retrieve_account_balance",
+            return_value={
+                "available": [{"amount": 1250, "currency": "gbp"}],
+                "pending": [{"amount": 400, "currency": "gbp"}],
+            },
+        ).start()
         patch("accounts.services.BrowserUseClient", return_value=self.browser).start()
         self.addCleanup(patch.stopall)
 
@@ -92,6 +105,13 @@ class AccountApiTests(TestCase):
         self.assertEqual(payload["stripe"]["stripe_account_id"], "acct_123")
         self.assertEqual(payload["stripe"]["transfers_status"], "pending")
         self.assertEqual(payload["stripe"]["onboarding_url"], ONBOARDING_URL)
+        self.assertEqual(
+            payload["stripe"]["balance"],
+            {
+                "available": [{"amount": 1250, "currency": "gbp"}],
+                "pending": [{"amount": 400, "currency": "gbp"}],
+            },
+        )
         self.assertEqual(payload["browser_profile"]["status"], "ready")
         self.assertEqual(payload["browser_profile"]["profile_id"], "prof_1")
         self.assertEqual(
@@ -344,6 +364,81 @@ class MarketplacePasswordTests(TestCase):
         )
         with self.assertRaises(AccountError):
             marketplace_login_secret(user, "ebay")
+
+
+class AccountBalanceTests(TestCase):
+    def test_balance_failure_still_returns_the_seller(self):
+        with patch(
+            "payments.services.create_recipient_account",
+            return_value=("acct_123", "pending"),
+        ), patch(
+            "payments.services.onboarding_link", return_value=ONBOARDING_URL
+        ), patch(
+            "accounts.services.onboarding_link", return_value=ONBOARDING_URL
+        ), patch(
+            "accounts.services.retrieve_account_balance",
+            side_effect=StripeCallError("Balance is down."),
+        ), patch(
+            "accounts.services.BrowserUseClient", return_value=FakeBrowser()
+        ):
+            response = self.client.post(
+                "/api/accounts/signup/",
+                data=json.dumps(
+                    {
+                        "email": "ada@example.com",
+                        "password": PASSWORD,
+                        "display_name": "Ada",
+                    }
+                ),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        stripe_payload = response.json()["stripe"]
+        self.assertEqual(stripe_payload["stripe_account_id"], "acct_123")
+        self.assertNotIn("balance", stripe_payload)
+        self.assertEqual(stripe_payload["error"], "Balance is down.")
+
+    def test_reads_the_connected_account_balance(self):
+        balance = SimpleNamespace(
+            available=[SimpleNamespace(amount=1250, currency="gbp")],
+            pending=[SimpleNamespace(amount=0, currency="GBP")],
+        )
+        with patch("payments.stripe_api.client") as client:
+            client.return_value.v1.balance.retrieve.return_value = balance
+            payload = retrieve_account_balance("acct_123")
+        self.assertEqual(
+            payload,
+            {
+                "available": [{"amount": 1250, "currency": "gbp"}],
+                "pending": [{"amount": 0, "currency": "gbp"}],
+            },
+        )
+        client.return_value.v1.balance.retrieve.assert_called_once_with(
+            options={"stripe_account": "acct_123"},
+        )
+
+    def test_balance_amounts_skip_unusable_rows(self):
+        payload = balance_amounts(
+            {
+                "available": [
+                    {"amount": 10, "currency": "USD"},
+                    {"amount": True, "currency": "gbp"},
+                ],
+                "pending": None,
+            }
+        )
+        self.assertEqual(payload["available"], [{"amount": 10, "currency": "usd"}])
+        self.assertEqual(payload["pending"], [])
+
+    def test_stripe_error_becomes_a_call_error(self):
+        with patch("payments.stripe_api.client") as client:
+            client.return_value.v1.balance.retrieve.side_effect = stripe.StripeError(
+                "nope"
+            )
+            with self.assertRaises(StripeCallError) as caught:
+                retrieve_account_balance("acct_123")
+        self.assertEqual(str(caught.exception), "nope")
 
 
 class RecipientIdempotencyTests(TestCase):

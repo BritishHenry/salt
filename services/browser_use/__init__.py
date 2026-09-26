@@ -37,6 +37,8 @@ from services.browser_use.models import (
     RunEvent,
     Secret,
     Session,
+    Workspace,
+    WorkspaceUpload,
 )
 
 __all__ = [
@@ -61,4 +63,6 @@ __all__ = [
     "Secret",
     "Session",
     "SessionBusy",
+    "Workspace",
+    "WorkspaceUpload",
 ]

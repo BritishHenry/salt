@@ -12,6 +12,17 @@ struct AccountUser: Equatable, Codable, Hashable, Sendable {
     }
 }
 
+struct StripeAmount: Equatable, Codable, Hashable, Sendable {
+    var amount: Int
+    var currency: String
+}
+
+/// Available and pending minor units on the connected Stripe account.
+struct StripeBalance: Equatable, Codable, Hashable, Sendable {
+    var available: [StripeAmount]
+    var pending: [StripeAmount]
+}
+
 /// Stripe recipient created during signup. A missing account is `status == failed`.
 struct StripeProvision: Equatable, Codable, Hashable, Sendable {
     var status: String?
@@ -20,6 +31,7 @@ struct StripeProvision: Equatable, Codable, Hashable, Sendable {
     var stripeAccountId: String?
     var transfersStatus: String?
     var onboardingUrl: String?
+    var balance: StripeBalance?
 
     var hasAccount: Bool {
         guard let stripeAccountId else { return false }
@@ -33,6 +45,7 @@ struct StripeProvision: Equatable, Codable, Hashable, Sendable {
         case stripeAccountId = "stripe_account_id"
         case transfersStatus = "transfers_status"
         case onboardingUrl = "onboarding_url"
+        case balance
     }
 }
 
