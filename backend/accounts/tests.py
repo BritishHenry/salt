@@ -1,11 +1,15 @@
 import json
+import os
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from cryptography.fernet import Fernet
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 from accounts.models import ApiToken, MarketplaceConnection, User
+from accounts.secrets import marketplace_login_secret
+from accounts.services import AccountError
 from payments.models import Seller
 from payments.stripe_api import StripeCallError, create_recipient_account
 from services.browser_use.models import Profile, ProfilePage
@@ -92,6 +96,10 @@ class AccountApiTests(TestCase):
         self.assertEqual(payload["browser_profile"]["profile_id"], "prof_1")
         self.assertEqual(self.browser.created[0].user_id, str(user.pk))
         self.create_account.assert_called_once()
+        encoded = json.dumps(payload)
+        self.assertNotIn("vinted_password", encoded)
+        self.assertNotIn("depop_password", encoded)
+        self.assertNotIn("ebay_password", encoded)
 
     def test_stripe_failure_still_creates_the_account_and_profile(self):
         self.create_account.side_effect = StripeCallError("Stripe is down.")
@@ -250,6 +258,43 @@ class MarketplaceConnectionTests(TestCase):
                     user=user,
                     marketplace=MarketplaceConnection.Marketplace.VINTED,
                 )
+
+
+class MarketplacePasswordTests(TestCase):
+    def setUp(self):
+        key = Fernet.generate_key().decode()
+        self.env = patch.dict(os.environ, {"MARKETPLACE_SECRET_KEY": key})
+        self.env.start()
+        self.addCleanup(self.env.stop)
+
+    def test_password_round_trips_as_ciphertext(self):
+        user = User.objects.create_user(
+            email="ada@example.com", display_name="Ada", password=PASSWORD
+        )
+        user.set_marketplace_password("vinted", "shop-secret")
+        user.save(update_fields=["vinted_password"])
+
+        stored = User.objects.get(pk=user.pk)
+        self.assertNotEqual(stored.vinted_password, "shop-secret")
+        self.assertEqual(stored.marketplace_password("vinted"), "shop-secret")
+        self.assertEqual(stored.marketplace_password("depop"), "")
+
+    def test_login_secret_is_locked_to_the_marketplace_domain(self):
+        user = User.objects.create_user(
+            email="ada@example.com", display_name="Ada", password=PASSWORD
+        )
+        user.set_marketplace_password("vinted", "shop-secret")
+        secret = marketplace_login_secret(user, "vinted")
+        self.assertEqual(secret.alias, "vinted_password")
+        self.assertEqual(secret.allowed_domains, ("vinted.co.uk",))
+        self.assertNotIn("shop-secret", repr(secret))
+
+    def test_missing_password_raises(self):
+        user = User.objects.create_user(
+            email="ada@example.com", display_name="Ada", password=PASSWORD
+        )
+        with self.assertRaises(AccountError):
+            marketplace_login_secret(user, "ebay")
 
 
 class RecipientIdempotencyTests(TestCase):
