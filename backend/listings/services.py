@@ -109,15 +109,25 @@ def update_item(item, data):
 def add_photo(item, upload):
     if upload is None or not getattr(upload, "size", 0):
         raise ListingError("image is required.")
-    last = (
-        item.photos.order_by("-position").values_list("position", flat=True).first()
-    )
-    position = 0 if last is None else last + 1
-    if position > 32767:
-        raise ListingError("This item has too many photos.")
-    photo = ItemPhoto(item=item, position=position)
-    photo.image = upload
-    photo.save()
+    with transaction.atomic():
+        locked_item = Item.objects.select_for_update().get(pk=item.pk)
+        last = (
+            ItemPhoto.objects.filter(item=locked_item)
+            .order_by("-position")
+            .values_list("position", flat=True)
+            .first()
+        )
+        position = 0 if last is None else last + 1
+        if position > 32767:
+            raise ListingError("This item has too many photos.")
+        photo = ItemPhoto(item=locked_item, position=position)
+        photo.image = upload
+        try:
+            photo.save()
+        except IntegrityError as exc:
+            raise ListingError(
+                "Another photo was added at the same time; please retry.", status=409
+            ) from exc
     return photo
 
 
