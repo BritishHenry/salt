@@ -1,9 +1,11 @@
 import io
 import json
+import os
 from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import urlparse
 
+from cryptography.fernet import Fernet
 from django.test import SimpleTestCase, TestCase
 
 from accounts.models import MarketplaceConnection, User
@@ -100,7 +102,6 @@ STREAM = "\n".join(
         'data: {"type":"response.reasoning_summary_text.delta","delta":"No new sales."}',
         'data: {"type":"response.output_text.delta","delta":"Nothing sold "}',
         'data: {"type":"response.output_text.delta","delta":"this week."}',
-        'data: {"type":"response.output_item.done","item":{"type":"function_call","name":"willow","arguments":"{}"}}',
         "data: [DONE]",
         "",
     ]
@@ -146,6 +147,11 @@ class SaltAgentTests(SimpleTestCase):
         )
         self.assertEqual(body["input"][-1], {"role": "user", "content": "How was my week?"})
         self.assertIn("Willow", body["instructions"])
+        self.assertIn("You never sign in to a marketplace.", body["instructions"])
+        self.assertIn("Before Maggie publishes", body["instructions"])
+        self.assertIn("Never send user_id.", body["instructions"])
+        self.assertNotIn("Marketplace sign-in is your job", body["instructions"])
+        self.assertNotIn("The seller is already signed in.", body["instructions"])
 
     def test_completed_thinking_and_reply_are_emitted_when_there_are_no_deltas(self):
         body = "\n".join(
@@ -238,8 +244,8 @@ class SaltChatViewTests(SimpleTestCase):
             def __init__(self):
                 self.calls = []
 
-            def chat(self, messages, *, safety_identifier=None):
-                self.calls.append((messages, safety_identifier))
+            def chat(self, messages, *, user=None, image_url=None, safety_identifier=None, grok=None, browser=None):
+                self.calls.append((messages, user, image_url, safety_identifier))
                 yield SaltEvent("thinking", "Looking at the wardrobe. ")
                 yield SaltEvent("thinking", "One coat is live.")
                 yield SaltEvent("message", "Your wool coat ")
@@ -259,10 +265,12 @@ class SaltChatViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/event-stream")
         streamed = sse(b"".join(response.streaming_content).decode())
-        self.assertEqual(
-            agent.calls,
-            [([{"role": "user", "content": "What is listed?"}], "7")],
-        )
+        self.assertEqual(len(agent.calls), 1)
+        messages, user, image_url, safety_identifier = agent.calls[0]
+        self.assertEqual(messages, [{"role": "user", "content": "What is listed?"}])
+        self.assertEqual(user.pk, 7)
+        self.assertIsNone(image_url)
+        self.assertEqual(safety_identifier, "7")
         self.assertEqual(
             streamed,
             [
@@ -282,7 +290,7 @@ class SaltChatViewTests(SimpleTestCase):
 
     def test_grok_failure_is_an_error_event(self):
         class FailingAgent:
-            def chat(self, messages, *, safety_identifier=None):
+            def chat(self, messages, *, user=None, image_url=None, safety_identifier=None, grok=None, browser=None):
                 yield SaltEvent("thinking", "Starting.")
                 raise GrokError("The Grok API could not be reached.")
 
@@ -376,6 +384,10 @@ class WillowToolTests(TestCase):
         self.user.browser_profile_id = "prof_1"
         self.user.browser_profile_status = "ready"
         self.user.save(update_fields=["browser_profile_id", "browser_profile_status"])
+        key = Fernet.generate_key().decode()
+        self.secret_key = patch.dict(os.environ, {"MARKETPLACE_SECRET_KEY": key})
+        self.secret_key.start()
+        self.addCleanup(self.secret_key.stop)
 
     def test_connect_without_a_password_does_not_open_a_browser(self):
         with patch("agents.willow.service.BrowserUseClient") as browser_cls:
@@ -438,6 +450,51 @@ class WillowToolTests(TestCase):
         self.assertEqual(row.error, "")
         self.assertIsNotNone(row.connected_at)
         self.assertIsNotNone(row.last_checked_at)
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.vinted_password, PASSWORD)
+        self.assertNotIn(PASSWORD, self.user.vinted_password)
+        self.assertEqual(self.user.marketplace_password("vinted"), PASSWORD)
+
+    def test_connect_reuses_the_encrypted_password(self):
+        self.user.set_marketplace_password("depop", PASSWORD)
+        self.user.save(update_fields=["depop_password"])
+        browser = FakeBrowser(
+            {"logged_in": True, "username": "ada-depop", "blocked_by": "none"}
+        )
+        with patch("agents.willow.service.BrowserUseClient", return_value=browser):
+            result = call_tool(
+                "willow",
+                self.user,
+                {"action": "connect", "marketplace": "depop"},
+            )
+
+        self.assertEqual(result["status"], "connected")
+        self.assertEqual(result["external_username"], "ada-depop")
+        self.assertNotIn(PASSWORD, json.dumps(result))
+        secret = browser.runs[0]["secret_bindings"][0]
+        self.assertEqual(secret.value, PASSWORD)
+        self.assertEqual(secret.allowed_domains, SITES["depop"].allowed_hosts)
+        self.assertNotIn(PASSWORD, browser.runs[0]["task"])
+
+    def test_connect_fails_closed_when_the_secret_key_is_missing(self):
+        self.secret_key.stop()
+        try:
+            with patch.dict(os.environ, {"MARKETPLACE_SECRET_KEY": ""}, clear=False):
+                with patch("agents.willow.service.BrowserUseClient") as browser_cls:
+                    result = call_tool(
+                        "willow",
+                        self.user,
+                        {"action": "connect", "marketplace": "ebay", "password": PASSWORD},
+                    )
+        finally:
+            self.secret_key.start()
+
+        browser_cls.assert_not_called()
+        self.assertEqual(result["status"], "failed")
+        self.assertNotIn(PASSWORD, json.dumps(result))
+        self.assertIn("could not be saved", result["message"])
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.ebay_password, "")
 
     def test_two_factor_asks_the_seller_to_come_back(self):
         browser = FakeBrowser(

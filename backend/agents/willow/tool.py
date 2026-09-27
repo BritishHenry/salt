@@ -7,9 +7,11 @@ from agents.willow.sites import SITES
 
 WILLOW_DESCRIPTION = (
     "Connect or check the seller's Vinted, Depop, or eBay session. "
-    "For connect, pass the password the seller just typed. Never invent a password "
-    "and never repeat it. For check, omit the password. "
-    "needs_login means ask the seller before trying again."
+    "For connect, pass the password the seller just typed. It is encrypted "
+    "before the browser runs and can be typed only on that marketplace. "
+    "Never invent a password and never repeat it. Omit the password to reuse "
+    "the encrypted one already stored. For check, omit the password. "
+    "needs_login means that marketplace needs the seller again before Maggie can publish."
 )
 
 WILLOW_PARAMETERS = {
@@ -28,8 +30,9 @@ WILLOW_PARAMETERS = {
         "password": {
             "type": "string",
             "description": (
-                "Required for connect. The seller just typed this. "
-                "Do not invent it, and do not repeat it back."
+                "The seller just typed this. Do not invent it, and do not repeat it back. "
+                "Willow encrypts it and does not keep the plaintext. "
+                "Omit it when an encrypted password is already stored."
             ),
         },
     },
