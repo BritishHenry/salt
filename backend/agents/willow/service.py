@@ -53,6 +53,13 @@ def connect_marketplace(user, marketplace, password, *, client=None):
     try:
         secret = _bind_login_secret(user, site, supplied)
     except ValueError:
+        if not supplied:
+            _clear_stored_password(user, site.slug)
+            message = (
+                f"Ask the seller for their {site.label} password, then call willow "
+                "again with action connect and that password."
+            )
+            return _save(connection, status="needs_login", message=message, checked=False, password=supplied)
         message = (
             f"The {site.label} password could not be saved. Ask the seller to try again."
         )
