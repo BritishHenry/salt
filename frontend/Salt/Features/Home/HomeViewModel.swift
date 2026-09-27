@@ -25,12 +25,16 @@ final class HomeViewModel: ObservableObject {
     }
 
     @discardableResult
-    func send(_ rawText: String) -> Bool {
+    func send(_ rawText: String, imageURL: String? = nil) -> Bool {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isReplying else { return false }
 
         replyTask?.cancel()
-        let user = dataSource.makeUserTurn(text: text, at: Date())
+        var user = dataSource.makeUserTurn(text: text, at: Date())
+        if let imageURL, case .user(var message) = user {
+            message.imageURL = imageURL
+            user = .user(message)
+        }
         turns.append(user)
         let transcript = turns
         let agent = dataSource.makeAgentTurn(at: Date())
@@ -44,6 +48,8 @@ final class HomeViewModel: ObservableObject {
                 guard !Task.isCancelled, let self else { return }
                 self.apply(event, to: agentID)
             }
+            guard !Task.isCancelled, let self else { return }
+            self.endStream(for: agentID)
         }
         return true
     }
@@ -52,6 +58,13 @@ final class HomeViewModel: ObservableObject {
         guard let index = turns.firstIndex(where: { $0.id == id }),
               case .agent(let turn) = turns[index] else { return }
         turns[index] = .agent(AgentTurnReducer.apply(event, to: turn))
+        refreshReplying()
+    }
+
+    private func endStream(for id: String) {
+        guard let index = turns.firstIndex(where: { $0.id == id }),
+              case .agent(let turn) = turns[index] else { return }
+        turns[index] = .agent(AgentTurnReducer.endStream(turn))
         refreshReplying()
     }
 

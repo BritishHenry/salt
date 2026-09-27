@@ -49,7 +49,7 @@ def willow_schema():
     )
 
 
-def handle_willow(user, arguments):
+def handle_willow(user, arguments, *, grok=None, browser=None):
     """Run one Willow action. Invalid arguments come back as a failed result."""
     action = arguments.get("action")
     marketplace = arguments.get("marketplace")
@@ -61,8 +61,8 @@ def handle_willow(user, arguments):
     if "password" in arguments and not isinstance(password, str):
         return _failed(marketplace, "password must be a string.")
     if action == "check":
-        return check_session(user, marketplace)
-    return connect_marketplace(user, marketplace, password or "")
+        return check_session(user, marketplace, client=browser)
+    return connect_marketplace(user, marketplace, password or "", client=browser)
 
 
 def _slug(marketplace):

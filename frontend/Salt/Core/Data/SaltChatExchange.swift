@@ -3,112 +3,37 @@ import Foundation
 import FoundationNetworking
 #endif
 
-enum SaltChatServerEvent: Equatable, Sendable {
-    case thinking(String)
-    case message(String)
-    case done(thinking: String, message: String)
-    case failure(String)
-}
-
-struct SaltChatDraft: Equatable, Sendable {
-    var thinking = ""
-    var message = ""
-
-    mutating func apply(_ event: SaltChatServerEvent) {
-        switch event {
-        case .thinking(let delta):
-            thinking += delta
-        case .message(let delta):
-            message += delta
-        case .done(let thinking, let message):
-            if !thinking.isEmpty {
-                self.thinking = thinking
-            }
-            if !message.isEmpty {
-                self.message = message
-            }
-        case .failure(let text):
-            let note = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let visible = note.isEmpty ? "Salt couldn't finish that. Try again." : note
-            if message.isEmpty {
-                message = visible
-            } else {
-                message += "\n\n" + visible
-            }
-        }
-    }
-}
-
-struct SaltChatSSEParser {
-    private var buffer = ""
-
-    mutating func append(_ text: String) -> [SaltChatServerEvent] {
-        buffer += text.replacingOccurrences(of: "\r\n", with: "\n")
-        var events: [SaltChatServerEvent] = []
-        while let range = buffer.range(of: "\n\n") {
-            let block = String(buffer[..<range.lowerBound])
-            buffer = String(buffer[range.upperBound...])
-            if let event = Self.event(from: block) {
-                events.append(event)
-            }
-        }
-        return events
-    }
-
-    mutating func finish() -> [SaltChatServerEvent] {
-        let tail = buffer
-        buffer = ""
-        guard let event = Self.event(from: tail) else { return [] }
-        return [event]
-    }
-
-    private static func event(from block: String) -> SaltChatServerEvent? {
-        var name = ""
-        var dataLines: [String] = []
-        for line in block.split(separator: "\n", omittingEmptySubsequences: false) {
-            let text = String(line)
-            if text.hasPrefix("event:") {
-                name = text.dropFirst("event:".count).trimmingCharacters(in: .whitespaces)
-            } else if text.hasPrefix("data:") {
-                dataLines.append(String(text.dropFirst("data:".count)).trimmingCharacters(in: .whitespaces))
-            }
-        }
-        guard !name.isEmpty, !dataLines.isEmpty else { return nil }
-        guard let body = dataLines.joined(separator: "\n").data(using: .utf8),
-              let payload = try? JSONDecoder().decode(SaltChatEventPayload.self, from: body) else {
-            return nil
-        }
-        switch name {
-        case "thinking":
-            guard let delta = payload.delta, !delta.isEmpty else { return nil }
-            return .thinking(delta)
-        case "message":
-            guard let delta = payload.delta, !delta.isEmpty else { return nil }
-            return .message(delta)
-        case "done":
-            return .done(thinking: payload.thinking ?? "", message: payload.message ?? "")
-        case "error":
-            return .failure(payload.error ?? "")
-        default:
-            return nil
-        }
-    }
-}
-
 enum SaltChatExchange {
-    static func request(baseURL: URL, token: String, transcript: [ChatTurn]) throws -> URLRequest {
+    static func request(
+        baseURL: URL,
+        token: String,
+        transcript: [ChatTurn],
+        imageURL: String? = nil
+    ) throws -> URLRequest {
         let messages = wireMessages(from: transcript)
         guard let last = messages.last, last.role == "user" else {
             throw AccountAPIError(message: "The last message must be from the user.")
         }
+        let attached = imageURL ?? lastUserImage(in: transcript)
         var request = URLRequest(url: try AccountExchange.url(baseURL: baseURL, path: "api/agents/salt/chat"))
         request.httpMethod = "POST"
-        request.timeoutInterval = 120
+        request.timeoutInterval = 300
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONEncoder().encode(SaltChatRequestBody(messages: messages))
+        request.httpBody = try JSONEncoder().encode(
+            SaltChatRequestBody(messages: messages, imageURL: attached)
+        )
         return request
+    }
+
+    static func lastUserImage(in transcript: [ChatTurn]) -> String? {
+        for turn in transcript.reversed() {
+            if case .user(let message) = turn, let imageURL = message.imageURL, !imageURL.isEmpty {
+                return imageURL
+            }
+        }
+        return nil
     }
 
     static func wireMessages(from transcript: [ChatTurn]) -> [SaltChatWireMessage] {
@@ -139,7 +64,20 @@ enum SaltChatExchange {
         if statusCode == 401 {
             return "Authentication required."
         }
-        return "Salt couldn't finish that. Try again."
+        return AgentTurnReducer.unfinishedMessage
+    }
+
+    static func openingTurn(at date: Date) -> ChatTurn {
+        .agent(
+            AgentTurn(
+                id: "local:welcome",
+                thinking: "",
+                message: MockCopy.welcome,
+                phase: .complete,
+                error: nil,
+                startedAt: date
+            )
+        )
     }
 }
 
@@ -150,13 +88,20 @@ struct SaltChatWireMessage: Equatable, Codable, Sendable {
 
 private struct SaltChatRequestBody: Encodable {
     var messages: [SaltChatWireMessage]
-}
+    var imageURL: String?
 
-private struct SaltChatEventPayload: Decodable {
-    var delta: String?
-    var thinking: String?
-    var message: String?
-    var error: String?
+    enum CodingKeys: String, CodingKey {
+        case messages
+        case imageURL = "image_url"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(messages, forKey: .messages)
+        if let imageURL, !imageURL.isEmpty {
+            try container.encode(imageURL, forKey: .imageURL)
+        }
+    }
 }
 
 private struct SaltChatErrorBody: Decodable {
@@ -166,6 +111,6 @@ private struct SaltChatErrorBody: Decodable {
 protocol SaltChatStreaming: Sendable {
     func streamReply(
         transcript: [ChatTurn],
-        onEvent: @Sendable (SaltChatServerEvent) async -> Void
+        onEvent: @Sendable (ChatStreamEvent) async -> Void
     ) async throws
 }

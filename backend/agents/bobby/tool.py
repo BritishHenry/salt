@@ -42,7 +42,7 @@ def bobby_schema():
     )
 
 
-def handle_bobby(user, arguments, *, grok=None):
+def handle_bobby(user, arguments, *, grok=None, browser=None):
     """Draft listings for one item. Invalid arguments come back as a failed result."""
     return draft_listings(user, arguments, grok=grok)
 

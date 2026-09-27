@@ -11,7 +11,8 @@ from PIL import Image
 from agents.buttons.errors import ButtonsError
 from agents.buttons.photos import fetch_image
 from agents.buttons.schema import FIELD_ORDER
-from agents.salt.dispatch import TOOLS, DispatchError, dispatch
+from agents.salt.tools import specialist_tools
+from agents.tools import TOOLS, call_tool
 from listings.models import Item
 from services.grok.constants import DEFAULT_TEXT_MODEL
 
@@ -82,7 +83,7 @@ class FakeGrok:
 
 
 def call(user, grok, **arguments):
-    return dispatch("buttons", arguments, user, grok=grok)
+    return call_tool("buttons", user, arguments, grok=grok)
 
 
 @override_settings(MEDIA_ROOT=MEDIA)
@@ -93,7 +94,9 @@ class ButtonsToolTests(TestCase):
         shutil.rmtree(MEDIA, ignore_errors=True)
 
     def test_tool_is_registered_for_salt(self):
-        self.assertEqual([tool["function"]["name"] for tool in TOOLS], ["buttons"])
+        self.assertIn("buttons", [tool["name"] for tool in specialist_tools()])
+        self.assertEqual(TOOLS["buttons"].schema["name"], "buttons")
+        self.assertNotIn("function", TOOLS["buttons"].schema)
 
     def test_read_photo_stores_a_draft_and_leaves_columns_blank(self):
         user = make_user("seller")
@@ -273,23 +276,24 @@ class ButtonsToolTests(TestCase):
         grok = FakeGrok(reading(brand=found("Nike")))
         created = call(owner, grok, action="read_photo", image_file_id="file_1")
 
-        with self.assertRaises(ButtonsError) as refused:
-            call(other, grok, action="deny_item", item_id=created["item_id"])
-        self.assertIn("someone else", str(refused.exception))
+        refused = call(other, grok, action="deny_item", item_id=created["item_id"])
+        self.assertEqual(refused["status"], "failed")
+        self.assertIn("someone else", refused["message"])
         self.assertEqual(
             Item.objects.get(pk=created["item_id"]).status,
             Item.Status.DRAFT,
         )
-        with self.assertRaises(DispatchError):
-            dispatch("willow", {}, owner, grok=grok)
+        unknown = call_tool("not-a-specialist", owner, {}, grok=grok)
+        self.assertEqual(unknown["status"], "failed")
+        self.assertIn("Unknown tool", unknown["message"])
 
     def test_unrecognised_choice_does_not_save_an_item(self):
         user = make_user("seller")
         grok = FakeGrok(reading(category=found("hat")))
 
-        with self.assertRaises(ButtonsError):
-            call(user, grok, action="read_photo", image_file_id="file_1")
+        result = call(user, grok, action="read_photo", image_file_id="file_1")
 
+        self.assertEqual(result["status"], "failed")
         self.assertEqual(Item.objects.count(), 0)
 
     def test_data_image_and_private_url(self):

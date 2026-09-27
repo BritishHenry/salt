@@ -32,6 +32,10 @@ final class AccountViewModel: ObservableObject {
 
     var canManageSession: Bool { session != nil }
 
+    func refresh() async {
+        await session?.refresh()
+    }
+
     func retrySetup() {
         guard let session else { return }
         banner = nil
@@ -47,10 +51,5 @@ final class AccountViewModel: ObservableObject {
     func logOut() {
         guard let session else { return }
         Task { await session.logOut() }
-    }
-
-    func refresh() async {
-        guard let session else { return }
-        await session.refresh()
     }
 }

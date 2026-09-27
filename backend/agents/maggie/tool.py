@@ -45,9 +45,9 @@ def maggie_schema():
     )
 
 
-def handle_maggie(user, arguments):
+def handle_maggie(user, arguments, *, grok=None, browser=None):
     """Run one Maggie action. Invalid arguments come back as a failed result."""
-    return run(user, arguments)
+    return run(user, arguments, client=browser)
 
 
 def present_maggie(result, arguments):

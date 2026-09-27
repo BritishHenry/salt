@@ -137,6 +137,41 @@ class BrowserUseClient:
         payload = self._transport.request("POST", "/runs", json_body=body)
         return Run.from_api(payload)
 
+    def create_workspace(self):
+        """Create an empty workspace that can hold files for one run."""
+        payload = self._transport.request("POST", "/workspaces", json_body={})
+        if not isinstance(payload, dict):
+            raise BrowserUseError("Browser Use did not return a workspace.")
+        workspace_id = payload.get("id") or payload.get("workspaceId")
+        if not isinstance(workspace_id, str) or not workspace_id:
+            raise BrowserUseError("Browser Use did not return a workspace id.")
+        return workspace_id
+
+    def upload_workspace_file(self, workspace_id, *, filename, content, content_type):
+        """Upload one file and return its id.
+
+        The API returns a presigned URL. The bytes are PUT there without the API key.
+        """
+        if not isinstance(content, (bytes, bytearray)) or not content:
+            raise ValueError("content must be non-empty bytes")
+        payload = self._transport.request(
+            "POST",
+            f"/workspaces/{quote(str(workspace_id))}/files/upload",
+            json_body={
+                "fileName": filename,
+                "contentType": content_type,
+                "sizeBytes": len(content),
+            },
+        )
+        if not isinstance(payload, dict):
+            raise BrowserUseError("Browser Use did not return an upload.")
+        file_id = payload.get("fileId") or payload.get("id")
+        upload_url = payload.get("uploadUrl") or payload.get("url")
+        if not isinstance(file_id, str) or not file_id or not isinstance(upload_url, str):
+            raise BrowserUseError("Browser Use did not return an upload URL.")
+        self._transport.put_bytes(upload_url, bytes(content), content_type=content_type)
+        return file_id
+
     def assign(self, task, *, session_id=None, interrupt=False, **run_options):
         """Pass a task to a browser agent and keep the conversation.
 

@@ -66,10 +66,10 @@ func testCatalog() throws {
         expectTrue(!item.brand.isEmpty, "brand \(item.id)")
         expectTrue(!item.size.isEmpty, "size \(item.id)")
         expectTrue(!item.condition.isEmpty, "condition \(item.id)")
-        expectTrue(item.pricePence > 0, "price \(item.id)")
+        expectTrue((item.pricePence ?? 0) > 0, "price \(item.id)")
         expectTrue(!item.listedOn.isEmpty, "listed \(item.id)")
-        if let offer = item.pendingOffer {
-            expectTrue(offer.pence > 0 && offer.pence < item.pricePence, "offer below asking \(item.id)")
+        if let offer = item.pendingOffer, let price = item.pricePence {
+            expectTrue(offer.pence > 0 && offer.pence < price, "offer below asking \(item.id)")
             expectTrue(item.listedOn.contains(offer.marketplace), "offer site listed \(item.id)")
         }
         let data = try JSONEncoder().encode(item)
@@ -355,7 +355,8 @@ func testTranscriptAndSources() throws {
     expectTrue(agent.error == nil, "agent error empty")
     expectEqual(agent.startedAt, started, "agent date")
 
-    expectEqual(MockWardrobeDataSource().loadItems().map(\.id), MockWardrobe.items.map(\.id), "wardrobe source")
+    let loaded = try awaitCatalog(MockWardrobeDataSource().loadItems)
+    expectEqual(loaded.map(\.id), MockWardrobe.items.map(\.id), "wardrobe source")
 
     let profile = MockAccountDataSource().loadProfile()
     expectEqual(profile.displayName, "Claire Bennett", "account name")
@@ -493,8 +494,51 @@ func testSignup() throws {
     expectEqual(profile.stripePendingLabel, "£4 pending", "pending caption")
     let browser = profile.sections.first { $0.id == "browser" }?.rows.first
     expectEqual(browser?.value ?? "", "Ready", "browser ready")
-    let markets = profile.sections.first { $0.id == "marketplaces" }?.rows ?? []
-    expectEqual(markets.map(\.value), ["Not connected", "Not connected", "Not connected"], "shops not signed in yet")
+    expectTrue(account.marketplaces.isEmpty, "signup without shops")
+    let markets = profile.sections.first { $0.id == "marketplaces" }
+    expectEqual(markets?.note, "Salt connects these shops.", "markets caption")
+    expectEqual(
+        markets?.rows.map(\.value) ?? [],
+        ["Not connected", "Not connected", "Not connected"],
+        "missing marketplaces stay not connected"
+    )
+
+    let shops = """
+    {"token":"tok_shops","user":{"id":7,"email":"ada@example.com","display_name":"Ada"},"stripe":{"seller_id":3,"stripe_account_id":"acct_123","transfers_status":"active"},"browser_profile":{"status":"ready","profile_id":"prof_1"},"marketplaces":[{"marketplace":"ebay","status":"failed","external_username":"","error":"eBay showed a captcha. Ask the seller to try again later."},{"marketplace":"depop","status":"needs_login","external_username":"","error":"Ask the seller for their Depop password, then call willow again."},{"marketplace":"vinted","status":"connected","external_username":"ada-shop","error":""},{"marketplace":"facebook","status":"connected","external_username":"other","error":""}]}
+    """
+    let shopAccount = try AccountExchange.decodeSignedIn(
+        HTTPResponse(statusCode: 200, data: Data(shops.utf8)),
+        keepingToken: nil
+    )
+    let shopProfile = AccountProfileBuilder.profile(for: shopAccount)
+    let shopRows = shopProfile.sections.first { $0.id == "marketplaces" }?.rows ?? []
+    expectEqual(shopRows.map(\.id), ["vinted", "depop", "ebay"], "shop order")
+    expectEqual(
+        shopRows.map(\.value),
+        ["Connected as ada-shop", "Needs login", "Failed"],
+        "live shop status"
+    )
+    expectTrue(shopProfile.statusNote == nil, "shop errors stay out of the note")
+
+    let unknown = SignedInAccount(
+        token: "tok_unknown",
+        user: shopAccount.user,
+        stripe: shopAccount.stripe,
+        browserProfile: shopAccount.browserProfile,
+        marketplaces: [
+            MarketplaceLink(marketplace: "vinted", status: "weird", externalUsername: "ada-shop", error: "ignore"),
+            MarketplaceLink(marketplace: "depop", status: "connected", externalUsername: "  ", error: "ignore"),
+            MarketplaceLink(marketplace: "ebay", status: "needs_login", externalUsername: "", error: "ignore"),
+            MarketplaceLink(marketplace: "facebook", status: "failed", externalUsername: "other", error: "ignore")
+        ]
+    )
+    let unknownRows = AccountProfileBuilder.profile(for: unknown).sections.first { $0.id == "marketplaces" }?.rows ?? []
+    expectEqual(unknownRows.map(\.id), ["vinted", "depop", "ebay"], "unknown slug adds no row")
+    expectEqual(
+        unknownRows.map(\.value),
+        ["Not connected", "Connected", "Needs login"],
+        "unknown status stays not connected"
+    )
 
     let failedStripe = """
     {"token":"tok_2","user":{"id":7,"email":"ada@example.com","display_name":"Ada"},"stripe":{"status":"failed","error":"Stripe is down."},"browser_profile":{"status":"ready","profile_id":"prof_1"}}
@@ -662,6 +706,44 @@ func testAgentTurnReducer() {
     failed = AgentTurnReducer.apply(.thinking("more"), to: failed)
     expectEqual(failed.thinking, "Starting.", "ignore after failed")
     expectEqual(failed.phase, .failed, "stays failed")
+
+    var blank = AgentTurn(
+        id: "blank",
+        thinking: "",
+        message: "",
+        phase: .thinking,
+        error: nil,
+        startedAt: started
+    )
+    blank = AgentTurnReducer.apply(.error("  "), to: blank)
+    expectEqual(blank.phase, .failed, "blank error fails")
+    expectEqual(blank.error, AgentTurnReducer.unfinishedMessage, "blank error text")
+
+    var dropped = AgentTurn(
+        id: "dropped",
+        thinking: "",
+        message: "",
+        phase: .thinking,
+        error: nil,
+        startedAt: started
+    )
+    dropped = AgentTurnReducer.apply(.thinking("Looking."), to: dropped)
+    dropped = AgentTurnReducer.endStream(dropped)
+    expectEqual(dropped.phase, .failed, "open stream fails")
+    expectEqual(dropped.thinking, "Looking.", "open stream keeps thinking")
+    expectEqual(dropped.error, AgentTurnReducer.unfinishedMessage, "open stream text")
+    let finished = AgentTurnReducer.endStream(dropped)
+    expectEqual(finished, dropped, "end stream leaves a failed turn")
+
+    let done = AgentTurn(
+        id: "done",
+        thinking: "Looking.",
+        message: "Your coat is on Vinted.",
+        phase: .complete,
+        error: nil,
+        startedAt: started
+    )
+    expectEqual(AgentTurnReducer.endStream(done), done, "end stream leaves a finished turn")
 }
 
 func testServerSentEvents() {
@@ -736,6 +818,19 @@ func testServerSentEvents() {
         [.error("The Grok API could not be reached.")],
         "unknown event skipped"
     )
+
+    var tail = ServerSentEventParser()
+    expectEqual(
+        tail.append(Data("event: message\ndata: {\"delta\":\"Still here\"}\n".utf8)),
+        [],
+        "frame without a blank line waits"
+    )
+    expectEqual(
+        tail.finish(),
+        [.message("Still here")],
+        "finish reads the last frame"
+    )
+    expectEqual(tail.finish(), [], "finish is empty after it drains")
 }
 
 func isAgent(_ turn: ChatTurn) -> Bool {
@@ -817,47 +912,83 @@ func testSaltChatExchange() throws {
     expectEqual(request.value(forHTTPHeaderField: "Accept"), "text/event-stream", "chat accept")
     let body = try JSONDecoder().decode(ChatRequestFixture.self, from: request.httpBody ?? Data())
     expectEqual(body.messages, [SaltChatWireMessage(role: "user", content: "What is listed?")], "chat body")
+    expectTrue(body.imageURL == nil, "chat body has no photo")
+    expectEqual(request.timeoutInterval, 300, "chat timeout waits for a tool")
 
-    var parser = SaltChatSSEParser()
-    let first = parser.append("event: thinking\ndata: {\"delta\":\"Looking.\"}\n")
-    expectEqual(first, [], "parser waits for a blank line")
-    let streamed = parser.append("\nevent: message\ndata: {\"delta\":\"Your coat \"}\n\n")
+    let photo = ChatMessage(
+        id: "u2",
+        author: .user,
+        text: "Here is a photo.",
+        imageURL: "data:image/jpeg;base64,aa",
+        sentAt: Date(timeIntervalSince1970: 4)
+    )
+    let photoRequest = try SaltChatExchange.request(
+        baseURL: SaltAPIConfiguration.defaultBaseURL,
+        token: "tok_1",
+        transcript: [photo]
+    )
+    let photoBody = try JSONDecoder().decode(ChatRequestFixture.self, from: photoRequest.httpBody ?? Data())
+    expectEqual(photoBody.imageURL, "data:image/jpeg;base64,aa", "chat body includes the photo")
+
+    let openedAt = Date(timeIntervalSince1970: 4)
+    let opening = SaltChatExchange.openingTurn(at: openedAt)
+    expectEqual(agentMessage(opening) ?? "", MockCopy.welcome, "opening line")
+    if case .agent(let welcome) = opening {
+        expectEqual(welcome.id, "local:welcome", "opening stays local")
+        expectEqual(welcome.phase, .complete, "opening is complete")
+        expectEqual(welcome.startedAt, openedAt, "opening date")
+    } else {
+        expectTrue(false, "opening is an agent turn")
+    }
+    expectEqual(
+        SaltChatExchange.wireMessages(from: [opening, asked]),
+        [SaltChatWireMessage(role: "user", content: "What is listed?")],
+        "opening line is not sent"
+    )
+
+    let lines = [
+        "event: thinking",
+        "data: {\"delta\":\"Looking.\"}",
+        "",
+        "event: message",
+        "data: {\"delta\":\"Your coat \"}",
+        "",
+        "event: message",
+        "data: {\"delta\":\"is on Vinted.\"}",
+        "",
+        "event: done",
+        "data: {\"thinking\":\"Looking.\",\"message\":\"Your coat is on Vinted.\"}",
+        ""
+    ]
+    var decoder = SaltChatLineDecoder()
+    var streamed: [ChatStreamEvent] = []
+    for line in lines {
+        streamed.append(contentsOf: decoder.receiveLine(line))
+    }
+    streamed.append(contentsOf: decoder.finish())
     expectEqual(
         streamed,
-        [.thinking("Looking."), .message("Your coat ")],
-        "parser reads complete events"
-    )
-    let rest = parser.append("event: message\ndata: {\"delta\":\"is on Vinted.\"}\n\nevent: done\ndata: {\"thinking\":\"Looking.\",\"message\":\"Your coat is on Vinted.\"}\n\n")
-    expectEqual(
-        rest,
         [
+            .thinking("Looking."),
+            .message("Your coat "),
             .message("is on Vinted."),
             .done(thinking: "Looking.", message: "Your coat is on Vinted.")
         ],
-        "parser reads the rest of the stream"
+        "line decoder reads the chat stream"
     )
 
-    var split = SaltChatSSEParser()
-    _ = split.append("event: error\ndata: {\"error\":\"The Grok API ")
-    let failed = split.append("could not be reached.\"}\n\n")
-    expectEqual(failed, [.failure("The Grok API could not be reached.")], "parser joins a split data line")
-
-    var draft = SaltChatDraft()
-    draft.apply(.thinking("Looking."))
-    draft.apply(.message("Your coat "))
-    draft.apply(.done(thinking: "Looking.", message: "Your coat is on Vinted."))
-    expectEqual(draft.thinking, "Looking.", "done replaces thinking")
-    expectEqual(draft.message, "Your coat is on Vinted.", "done replaces the reply")
-    draft.apply(.failure("The Grok API could not be reached."))
+    var cutoff = SaltChatLineDecoder()
+    expectEqual(cutoff.receiveLine("event: error"), [], "line decoder waits for the data line")
     expectEqual(
-        draft.message,
-        "Your coat is on Vinted.\n\nThe Grok API could not be reached.",
-        "failure is appended"
+        cutoff.receiveLine("data: {\"error\":\"The Grok API could not be reached.\"}"),
+        [],
+        "line decoder waits for a blank line"
     )
-
-    var empty = SaltChatDraft()
-    empty.apply(.failure("  "))
-    expectEqual(empty.message, "Salt couldn't finish that. Try again.", "blank failure")
+    expectEqual(
+        cutoff.finish(),
+        [.error("The Grok API could not be reached.")],
+        "line decoder finishes a frame without a blank line"
+    )
 
     let denied = SaltChatExchange.message(
         forHTTPError: 401,
@@ -868,10 +999,270 @@ func testSaltChatExchange() throws {
 
 private struct ChatRequestFixture: Decodable {
     var messages: [SaltChatWireMessage]
+    var imageURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case messages
+        case imageURL = "image_url"
+    }
 }
 
 func itemDescription(_ items: [WardrobeItem], id: String) -> String {
     items.first { $0.id == id }?.listingDescription ?? ""
+}
+
+func awaitCatalog(_ operation: @escaping () async throws -> [WardrobeItem]) throws -> [WardrobeItem] {
+    final class Box: @unchecked Sendable {
+        var result: Result<[WardrobeItem], Error>?
+    }
+    let box = Box()
+    let semaphore = DispatchSemaphore(value: 0)
+    Task {
+        do {
+            box.result = .success(try await operation())
+        } catch {
+            box.result = .failure(error)
+        }
+        semaphore.signal()
+    }
+    semaphore.wait()
+    guard let result = box.result else {
+        throw AccountAPIError(message: "The wardrobe load did not finish.")
+    }
+    return try result.get()
+}
+
+final class QueueTransport: HTTPTransport, @unchecked Sendable {
+    var requests: [URLRequest] = []
+    var responses: [HTTPResponse]
+
+    init(_ responses: [HTTPResponse]) {
+        self.responses = responses
+    }
+
+    func send(_ request: URLRequest) throws -> HTTPResponse {
+        requests.append(request)
+        guard !responses.isEmpty else {
+            return HTTPResponse(statusCode: 500, data: Data("{\"error\":\"No scripted response.\"}".utf8))
+        }
+        return responses.removeFirst()
+    }
+}
+
+func wardrobeFixture() -> Data {
+    let json = """
+    {
+      "items": [
+        {
+          "id": 4,
+          "title": "Wool coat",
+          "brand": "COS",
+          "size_label": "M",
+          "condition": "very_good",
+          "category": "outerwear",
+          "price_minor": 7500,
+          "currency": "gbp",
+          "photos": [{"position": 0, "url": "https://cdn.example/coat.jpg"}],
+          "listings": [
+            {"marketplace": "vinted", "status": "draft"},
+            {"marketplace": "depop", "status": "live"},
+            {"marketplace": "etsy", "status": "live"}
+          ]
+        },
+        {
+          "id": 5,
+          "title": " ",
+          "brand": "",
+          "size_label": "",
+          "condition": "",
+          "category": "nope",
+          "price_minor": 1050,
+          "currency": "usd",
+          "photos": [],
+          "listings": []
+        },
+        {
+          "id": 6,
+          "title": "Linen shirt",
+          "brand": "Arket",
+          "size_label": "S",
+          "condition": "good",
+          "category": "tops",
+          "price_minor": null,
+          "currency": "gbp",
+          "photos": [],
+          "listings": []
+        }
+      ]
+    }
+    """
+    return Data(json.utf8)
+}
+
+func testWardrobeClient() throws {
+    expectEqual(MoneyFormat.amount(minor: 1050, currency: "usd"), "10.50 USD", "dollar amount")
+    expectEqual(MoneyFormat.amount(minor: 2800, currency: "GBP"), "£28", "pound amount")
+    expectEqual(MoneyParse.parse("28.50"), .amount(2850), "price with pence")
+    expectEqual(MoneyParse.parse("£1,250"), .amount(125000), "price with symbol")
+    expectEqual(MoneyParse.parse("  "), .empty, "blank price")
+    expectEqual(MoneyParse.parse("28.555"), .invalid, "too many decimals")
+    expectEqual(MoneyParse.text(fromMinor: 2850), "28.50", "price field")
+    expectEqual(MoneyParse.text(fromMinor: nil), "", "missing price field")
+
+    let base = URL(string: "http://127.0.0.1:8000")!
+    let transport = ScriptedTransport(response: HTTPResponse(statusCode: 200, data: wardrobeFixture()))
+    let items = try ListingExchange.listItems(transport: transport, baseURL: base, token: "tok_1")
+    expectEqual(items.map(\.id), ["4", "5", "6"], "decoded ids")
+    expectEqual(items[0].displayTitle, "Wool coat", "coat title")
+    expectEqual(items[0].size, "M", "coat size")
+    expectEqual(items[0].priceText, "£75", "coat price")
+    expectEqual(items[0].conditionText, "Very good", "coat condition")
+    expectEqual(items[0].kind, .outerwear, "coat kind")
+    expectEqual(items[0].listedOn, Set([Marketplace.depop]), "draft is not listed")
+    expectEqual(items[0].photoURL?.absoluteString, "https://cdn.example/coat.jpg", "coat photo")
+    expectEqual(items[0].listings.map(\.statusLabel), ["Draft", nil], "status labels")
+    expectEqual(items[1].displayTitle, "Untitled", "blank title")
+    expectEqual(items[1].kind, .other, "unknown category")
+    expectEqual(items[1].priceText, "10.50 USD", "dollar price")
+    expectEqual(items[2].priceText, "No price", "missing price")
+    expectEqual(WardrobeFilter.marketplace(.vinted).apply(to: items).count, 0, "vinted chip ignores drafts")
+    expectEqual(WardrobeFilter.marketplace(.depop).apply(to: items).map(\.id), ["4"], "depop chip")
+
+    let request = transport.requests[0]
+    expectEqual(request.httpMethod, "GET", "list method")
+    expectEqual(request.url?.absoluteString, "http://127.0.0.1:8000/api/listings/items/", "list url")
+    expectEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_1", "list auth")
+
+    let denied = ScriptedTransport(
+        response: HTTPResponse(statusCode: 401, data: Data("{\"error\":\"Authentication required.\"}".utf8))
+    )
+    do {
+        _ = try ListingExchange.listItems(transport: denied, baseURL: base, token: "tok_1")
+        expectTrue(false, "401 should throw")
+    } catch let error as AccountAPIError {
+        expectEqual(error.message, "Authentication required.", "401 message")
+        expectEqual(error.statusCode, 401, "401 status")
+    }
+
+    let malformed = ScriptedTransport(response: HTTPResponse(statusCode: 200, data: Data("not-json".utf8)))
+    do {
+        _ = try ListingExchange.listItems(transport: malformed, baseURL: base, token: "tok_1")
+        expectTrue(false, "malformed should throw")
+    } catch let error as AccountAPIError {
+        expectEqual(error.message, "Salt sent a response I couldn't read.", "malformed message")
+    }
+
+    let created = ScriptedTransport(response: HTTPResponse(statusCode: 201, data: Data("""
+    {"id": 9, "title": "Tee", "brand": "COS", "size_label": "S", "condition": "good", "category": "tops", "price_minor": 2800, "currency": "gbp", "photos": [], "listings": []}
+    """.utf8)))
+    let write = WardrobeItemWrite(
+        title: "Tee",
+        brand: "COS",
+        sizeLabel: "S",
+        condition: "good",
+        category: "tops",
+        priceMinor: 2800,
+        currency: "gbp"
+    )
+    let saved = try ListingExchange.saveItem(transport: created, baseURL: base, token: "tok_1", id: nil, write: write)
+    expectEqual(saved.id, "9", "created id")
+    expectEqual(created.requests[0].httpMethod, "POST", "create method")
+    expectEqual(created.requests[0].url?.absoluteString, "http://127.0.0.1:8000/api/listings/items/", "create url")
+    let body = try JSONSerialization.jsonObject(with: created.requests[0].httpBody ?? Data()) as? [String: Any]
+    expectEqual(body?["size_label"] as? String, "S", "create size")
+    expectEqual(body?["price_minor"] as? Int, 2800, "create price")
+    let cleared = try WardrobeItemWrite(
+        title: "Tee",
+        brand: "",
+        sizeLabel: "",
+        condition: "",
+        category: "",
+        priceMinor: nil,
+        currency: "gbp"
+    ).jsonData()
+    let clearedBody = try JSONSerialization.jsonObject(with: cleared) as? [String: Any]
+    expectTrue(clearedBody?["price_minor"] is NSNull, "clears price")
+
+    let conflict = QueueTransport([
+        HTTPResponse(statusCode: 409, data: Data("{\"error\":\"A listing for this marketplace already exists.\"}".utf8)),
+        HTTPResponse(statusCode: 200, data: Data("{\"marketplace\":\"vinted\",\"status\":\"live\"}".utf8))
+    ])
+    do {
+        try ListingExchange.createListing(
+            transport: conflict,
+            baseURL: base,
+            token: "tok_1",
+            itemID: "9",
+            marketplace: .vinted,
+            priceMinor: 2800,
+            currency: "gbp"
+        )
+        expectTrue(false, "409 should throw")
+    } catch let error as AccountAPIError {
+        expectEqual(error.statusCode, 409, "duplicate listing")
+    }
+    try ListingExchange.updateListing(
+        transport: conflict,
+        baseURL: base,
+        token: "tok_1",
+        itemID: "9",
+        marketplace: .vinted,
+        status: "live"
+    )
+    expectEqual(conflict.requests[1].httpMethod, "PATCH", "listing patch method")
+    expectEqual(
+        conflict.requests[1].url?.absoluteString,
+        "http://127.0.0.1:8000/api/listings/items/9/listings/vinted/",
+        "listing patch url"
+    )
+
+    let photo = ScriptedTransport(response: HTTPResponse(statusCode: 201, data: Data("{\"position\":0,\"url\":\"https://cdn.example/tee.jpg\"}".utf8)))
+    try ListingExchange.uploadPhoto(
+        transport: photo,
+        baseURL: base,
+        token: "tok_1",
+        itemID: "9",
+        filename: "photo.jpg",
+        data: Data("jpeg".utf8),
+        mimeType: "image/jpeg"
+    )
+    let photoRequest = photo.requests[0]
+    expectEqual(photoRequest.httpMethod, "POST", "photo method")
+    expectEqual(photoRequest.url?.absoluteString, "http://127.0.0.1:8000/api/listings/items/9/photos/", "photo url")
+    expectTrue(photoRequest.value(forHTTPHeaderField: "Content-Type")?.contains("multipart/form-data") == true, "photo content type")
+    let photoBody = photoRequest.httpBody ?? Data()
+    expectTrue(photoBody.range(of: Data("jpeg".utf8)) != nil, "photo bytes")
+
+    let draft = WardrobeListing(marketplace: .vinted, status: "draft")
+    let live = WardrobeListing(marketplace: .depop, status: "live")
+    expectEqual(
+        WardrobeSavePlan.channelSteps(existing: [draft, live], desiredLive: [.vinted]),
+        [.makeLive(.vinted, creating: false), .pause(.depop)],
+        "channel steps"
+    )
+    expectEqual(
+        WardrobeSavePlan.channelSteps(existing: [], desiredLive: [.ebay]),
+        [.makeLive(.ebay, creating: true)],
+        "create channel"
+    )
+
+    var state = WardrobeLoadState()
+    state.succeeded([sampleItem()])
+    let stale = state
+    WardrobeReload.apply(state: &state, result: .success([sampleItem(id: "next")]), generation: 1, current: 2)
+    expectEqual(state, stale, "stale reload is ignored")
+    WardrobeReload.apply(
+        state: &state,
+        result: .failure(AccountAPIError(message: "Salt couldn't reach the server.")),
+        generation: 2,
+        current: 2
+    )
+    expectEqual(state.items.map(\.id), ["sample"], "failed reload keeps items")
+    expectEqual(state.failure, "Salt couldn't reach the server.", "failed reload message")
+    expectTrue(!state.isLoading, "failed reload stops loading")
+    WardrobeReload.apply(state: &state, result: .success([sampleItem(id: "fresh")]), generation: 3, current: 3)
+    expectEqual(state.items.map(\.id), ["fresh"], "reload replaces items")
+    expectTrue(state.failure == nil, "reload clears the error")
 }
 
 do {
@@ -884,6 +1275,7 @@ do {
     testServerSentEvents()
     try testSignup()
     try testSaltChatExchange()
+    try testWardrobeClient()
 } catch {
     fputs("FAIL \(error)\n", stderr)
     exit(1)

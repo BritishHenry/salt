@@ -122,6 +122,31 @@ def extract_reasoning_delta(event):
     return ""
 
 
+def extract_function_call(event):
+    """Return a function call from a completed output item, or None.
+
+    The Responses stream reports the call on response.output_item.done.
+    arguments is the model's JSON string. call_id ties the later output to it.
+    """
+    if not isinstance(event, dict) or event.get("type") != "response.output_item.done":
+        return None
+    item = event.get("item")
+    if not isinstance(item, dict) or item.get("type") != "function_call":
+        return None
+    name = item.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return None
+    call_id = item.get("call_id") or item.get("id") or ""
+    arguments = item.get("arguments")
+    if not isinstance(arguments, str):
+        arguments = "{}"
+    return {
+        "name": name.strip(),
+        "call_id": call_id if isinstance(call_id, str) else str(call_id),
+        "arguments": arguments,
+    }
+
+
 def extract_completed_reasoning(event):
     """Return a finished thinking trace when the stream did not send deltas."""
     if not isinstance(event, dict):

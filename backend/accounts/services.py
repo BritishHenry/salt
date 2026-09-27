@@ -108,6 +108,7 @@ def account_payload(user, token=None):
         },
         "stripe": _stripe_payload(user),
         "browser_profile": _browser_payload(user),
+        "marketplaces": marketplace_connections_payload(user)["marketplaces"],
     }
     if token is not None:
         payload["token"] = token.key

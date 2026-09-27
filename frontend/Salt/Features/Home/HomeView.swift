@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeView: View {
     @StateObject private var viewModel: HomeViewModel
     @State private var draft = ""
+    @State private var attachment: String?
 
     init(dataSource: any ChatDataSource = MockChatDataSource()) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(dataSource: dataSource))
@@ -47,7 +48,12 @@ struct HomeView: View {
                     SaltHaptic.tap()
                 }
             }
-            ChatComposer(draft: $draft, canSend: canSend, onSend: submitDraft)
+            ChatComposer(
+                draft: $draft,
+                attachment: $attachment,
+                canSend: canSend,
+                onSend: submitDraft
+            )
         }
         .padding(.top, 8)
         .padding(.bottom, 10)
@@ -64,12 +70,16 @@ struct HomeView: View {
     }
 
     private var canSend: Bool {
-        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isReplying
+        let hasText = !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return (hasText || attachment != nil) && !viewModel.isReplying
     }
 
     private func submitDraft() {
-        guard viewModel.send(draft) else { return }
+        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = trimmed.isEmpty ? "Here is a photo." : trimmed
+        guard viewModel.send(text, imageURL: attachment) else { return }
         draft = ""
+        attachment = nil
         SaltHaptic.tap()
     }
 

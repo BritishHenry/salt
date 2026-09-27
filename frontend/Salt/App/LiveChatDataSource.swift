@@ -11,18 +11,7 @@ struct LiveChatDataSource: ChatDataSource, SaltChatStreaming {
     var suggestions: [String] { MockCopy.suggestions }
 
     func loadTranscript() -> [ChatTurn] {
-        [
-            .agent(
-                AgentTurn(
-                    id: "local:welcome",
-                    thinking: "",
-                    message: "Hello, I'm Salt. Ask me about the shop.",
-                    phase: .complete,
-                    error: nil,
-                    startedAt: Date()
-                )
-            )
-        ]
+        [SaltChatExchange.openingTurn(at: Date())]
     }
 
     func makeUserTurn(text: String, at date: Date) -> ChatTurn {
@@ -45,7 +34,7 @@ struct LiveChatDataSource: ChatDataSource, SaltChatStreaming {
             let task = Task {
                 do {
                     try await streamReply(transcript: transcript) { event in
-                        continuation.yield(ChatStreamEvent(serverEvent: event))
+                        continuation.yield(event)
                     }
                 } catch {
                     if !Task.isCancelled {
@@ -63,7 +52,7 @@ struct LiveChatDataSource: ChatDataSource, SaltChatStreaming {
 
     func streamReply(
         transcript: [ChatTurn],
-        onEvent: @Sendable (SaltChatServerEvent) async -> Void
+        onEvent: @Sendable (ChatStreamEvent) async -> Void
     ) async throws {
         let request = try SaltChatExchange.request(baseURL: baseURL, token: token, transcript: transcript)
         try await URLSessionSaltChat.stream(request, onEvent: onEvent)
@@ -73,7 +62,7 @@ struct LiveChatDataSource: ChatDataSource, SaltChatStreaming {
 enum URLSessionSaltChat {
     static func stream(
         _ request: URLRequest,
-        onEvent: @Sendable (SaltChatServerEvent) async -> Void
+        onEvent: @Sendable (ChatStreamEvent) async -> Void
     ) async throws {
         let session = URLSession(configuration: configuration)
         do {
@@ -88,13 +77,13 @@ enum URLSessionSaltChat {
                     statusCode: http.statusCode
                 )
             }
-            var parser = SaltChatSSEParser()
+            var decoder = SaltChatLineDecoder()
             for try await line in bytes.lines {
-                for event in parser.append(line + "\n") {
+                for event in decoder.receiveLine(line) {
                     await onEvent(event)
                 }
             }
-            for event in parser.finish() {
+            for event in decoder.finish() {
                 await onEvent(event)
             }
         } catch let error as AccountAPIError {
@@ -106,8 +95,8 @@ enum URLSessionSaltChat {
 
     private static var configuration: URLSessionConfiguration {
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 120
-        configuration.timeoutIntervalForResource = 180
+        configuration.timeoutIntervalForRequest = 300
+        configuration.timeoutIntervalForResource = 600
         configuration.waitsForConnectivity = true
         return configuration
     }
@@ -130,22 +119,6 @@ enum URLSessionSaltChat {
             return "Salt couldn't reach the server. Check that it's running."
         default:
             return "Salt couldn't reach the server."
-        }
-    }
-}
-
-private extension ChatStreamEvent {
-    init(serverEvent: SaltChatServerEvent) {
-        switch serverEvent {
-        case .thinking(let delta):
-            self = .thinking(delta)
-        case .message(let delta):
-            self = .message(delta)
-        case .done(let thinking, let message):
-            self = .done(thinking: thinking, message: message)
-        case .failure(let text):
-            let note = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            self = .error(note.isEmpty ? "Salt couldn't finish that. Try again." : note)
         }
     }
 }

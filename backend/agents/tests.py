@@ -102,7 +102,6 @@ STREAM = "\n".join(
         'data: {"type":"response.reasoning_summary_text.delta","delta":"No new sales."}',
         'data: {"type":"response.output_text.delta","delta":"Nothing sold "}',
         'data: {"type":"response.output_text.delta","delta":"this week."}',
-        'data: {"type":"response.output_item.done","item":{"type":"function_call","name":"willow","arguments":"{}"}}',
         "data: [DONE]",
         "",
     ]
@@ -140,17 +139,19 @@ class SaltAgentTests(SimpleTestCase):
         self.assertEqual(REASONING_EFFORT, "low")
         self.assertIs(body["stream"], True)
         self.assertIs(body["store"], False)
-        self.assertEqual(body["tool_choice"], "none")
+        self.assertEqual(body["tool_choice"], "auto")
         self.assertEqual(body["safety_identifier"], "seller-7")
         self.assertEqual(
             [tool["name"] for tool in body["tools"]],
-            ["willow", "bobby", "jacob", "maggie", "steve"],
+            ["willow", "bobby", "jacob", "buttons", "maggie", "steve"],
         )
         self.assertEqual(body["input"][-1], {"role": "user", "content": "How was my week?"})
         self.assertIn("Willow", body["instructions"])
-        self.assertIn("Vinted, then Depop, then eBay", body["instructions"])
+        self.assertIn("You never sign in to a marketplace.", body["instructions"])
         self.assertIn("Before Maggie publishes", body["instructions"])
-        self.assertIn("Never invent a password, never repeat one", body["instructions"])
+        self.assertIn("Never send user_id.", body["instructions"])
+        self.assertNotIn("Marketplace sign-in is your job", body["instructions"])
+        self.assertNotIn("The seller is already signed in.", body["instructions"])
 
     def test_completed_thinking_and_reply_are_emitted_when_there_are_no_deltas(self):
         body = "\n".join(
@@ -195,7 +196,9 @@ class SaltAgentTests(SimpleTestCase):
 
     def test_specialist_tools_name_the_other_agents(self):
         names = [tool["name"] for tool in specialist_tools()]
-        self.assertEqual(names, ["willow", "bobby", "jacob", "maggie", "steve"])
+        self.assertEqual(
+            names, ["willow", "bobby", "jacob", "buttons", "maggie", "steve"]
+        )
         self.assertTrue(all(tool["type"] == "function" for tool in specialist_tools()))
         self.assertNotIn("salt", names)
 
@@ -241,8 +244,8 @@ class SaltChatViewTests(SimpleTestCase):
             def __init__(self):
                 self.calls = []
 
-            def chat(self, messages, *, safety_identifier=None):
-                self.calls.append((messages, safety_identifier))
+            def chat(self, messages, *, user=None, image_url=None, safety_identifier=None, grok=None, browser=None):
+                self.calls.append((messages, user, image_url, safety_identifier))
                 yield SaltEvent("thinking", "Looking at the wardrobe. ")
                 yield SaltEvent("thinking", "One coat is live.")
                 yield SaltEvent("message", "Your wool coat ")
@@ -262,10 +265,12 @@ class SaltChatViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/event-stream")
         streamed = sse(b"".join(response.streaming_content).decode())
-        self.assertEqual(
-            agent.calls,
-            [([{"role": "user", "content": "What is listed?"}], "7")],
-        )
+        self.assertEqual(len(agent.calls), 1)
+        messages, user, image_url, safety_identifier = agent.calls[0]
+        self.assertEqual(messages, [{"role": "user", "content": "What is listed?"}])
+        self.assertEqual(user.pk, 7)
+        self.assertIsNone(image_url)
+        self.assertEqual(safety_identifier, "7")
         self.assertEqual(
             streamed,
             [
@@ -285,7 +290,7 @@ class SaltChatViewTests(SimpleTestCase):
 
     def test_grok_failure_is_an_error_event(self):
         class FailingAgent:
-            def chat(self, messages, *, safety_identifier=None):
+            def chat(self, messages, *, user=None, image_url=None, safety_identifier=None, grok=None, browser=None):
                 yield SaltEvent("thinking", "Starting.")
                 raise GrokError("The Grok API could not be reached.")
 
@@ -579,9 +584,9 @@ class WillowToolTests(TestCase):
         self.assertEqual(browser.released, [])
 
     def test_unknown_tool_and_bad_arguments_are_results(self):
-        unknown = call_tool("steve", self.user, {"request": "answer the buyer"})
+        unknown = call_tool("nobody", self.user, {"request": "answer the buyer"})
         self.assertEqual(unknown["status"], "failed")
-        self.assertIn("Unknown tool steve", unknown["message"])
+        self.assertIn("Unknown tool nobody", unknown["message"])
         invalid = call_tool("willow", self.user, ["connect"])
         self.assertEqual(invalid["status"], "failed")
         self.assertIn("object", invalid["message"])
