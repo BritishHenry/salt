@@ -213,7 +213,8 @@ def _browse(connection, site, *, task, profile_id, secret, password, client):
         )
     status, username, message = _interpret(site, output)
     if (
-        status == "needs_login"
+        secret is not None
+        and status == "needs_login"
         and isinstance(output, dict)
         and output.get("blocked_by") == "password"
     ):
